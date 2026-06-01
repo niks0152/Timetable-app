@@ -1,0 +1,1822 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover">
+  <meta name="theme-color" id="themeColorMeta" content="#ffffff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>Timetable</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --ink: #000000; 
+      --muted: #64748b;
+      --line: #e2e8f0;
+      --panel: #f8fafc;
+      --header: #f1f5f9;
+      --accent: #0ea5e9;
+      --accent-hover: #0284c7;
+      --accent-ink: #ffffff;
+      --danger-bg: #fee2e2;
+      --danger-ink: #991b1b;
+      --bg: #ffffff;
+      --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05);
+      --radius: 10px;
+      --table-head-bg: #1f4e79;
+      --table-head-ink: #ffffff;
+      --col-date: 118px;
+      --col-time: 168px;
+      --col-count: 80px; 
+    }
+
+    [data-theme="dark"] {
+      --ink: #ffffff; 
+      --muted: #a1a1aa;
+      --line: #27272a;
+      --panel: #09090b; 
+      --header: #000000;
+      --accent: #38bdf8;
+      --accent-hover: #7dd3fc;
+      --accent-ink: #000000;
+      --danger-bg: rgba(220, 38, 38, 0.2);
+      --danger-ink: #fca5a5;
+      --bg: #000000; 
+      --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.8);
+      --table-head-bg: #18181b;
+      --table-head-ink: #ffffff;
+    }
+
+    * { box-sizing: border-box; transition: background-color 0.2s ease, border-color 0.2s ease; }
+
+    html { background-color: var(--bg); height: -webkit-fill-available; }
+    body { margin: 0; padding: 0; width: 100%; min-height: -webkit-fill-available; height: 100dvh; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: var(--ink); background: var(--bg); -webkit-font-smoothing: antialiased; display: flex; flex-direction: column; }
+
+    #loadingOverlay { position: fixed; inset: 0; background: rgba(255,255,255,0.85); z-index: 4000; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: 600; color: var(--ink); backdrop-filter: blur(4px); transition: opacity 0.3s ease; }
+    [data-theme="dark"] #loadingOverlay { background: rgba(0,0,0,0.85); }
+    .spinner { width: 42px; height: 42px; border: 4px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 3000; display: flex; align-items: center; justify-content: center; padding: 20px; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; backdrop-filter: blur(4px); }
+    .modal-overlay.show { opacity: 1; pointer-events: auto; }
+    .modal-box { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 24px; width: 100%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); transform: translateY(20px); transition: transform 0.2s ease; }
+    .modal-overlay.show .modal-box { transform: translateY(0); }
+    .modal-details p { margin: 10px 0; font-size: 14px; color: var(--muted); display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px dashed var(--line); padding-bottom: 8px;}
+    .modal-details p:last-child { border-bottom: none; }
+    .modal-details strong { color: var(--ink); font-weight: 600; flex-shrink: 0;}
+    .modal-details span { text-align: right; word-break: break-word; }
+    .modal-close { margin-top: 24px; width: 100%; background: var(--panel); border: 1px solid var(--line); padding: 12px; border-radius: 8px; cursor: pointer; color: var(--ink); font-weight: 600; font-size: 15px; transition: 0.2s; }
+    .modal-close:hover { background: var(--line); }
+
+    /* --- ONBOARDING, LOGIN, ADMIN SCREENS --- */
+    #loginScreen, #onboardingScreen, #adminDashboardScreen { position: fixed; inset: 0; background: var(--bg); z-index: 1000; display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 24px; }
+    #adminDashboardScreen { z-index: 2500; overflow-y: auto; padding:24px; align-items: stretch; justify-content: flex-start; text-align: left; }
+    #loginScreen h1, #onboardingScreen h1 { font-size: 42px; font-weight: 800; letter-spacing: -1px; margin-bottom: 8px; color: var(--ink); }
+    #loginScreen h2, #onboardingScreen h2 { font-size: 18px; font-weight: 500; color: var(--muted); margin-bottom: 32px; max-width: 400px; }
+    
+    .google-btn { display: flex; align-items: center; gap: 10px; padding: 14px 24px; font-size: 15px; font-weight: 600; background: #ffffff; color: #3c4043; border: 1px solid #dadce0; border-radius: 8px; cursor: pointer; box-shadow: 0 1px 2px 0 rgba(60,64,67,0.3); transition: all 0.2s; }
+    .google-btn:hover { background: #f8f9fa; box-shadow: 0 1px 3px 1px rgba(60,64,67,0.15); transform: translateY(-1px); }
+    .google-btn img { width: 18px; height: 18px; }
+    .credits-footer { position: absolute; bottom: 24px; font-size: 13px; font-weight: 500; color: var(--muted); opacity: 0.7; letter-spacing: 0.5px; text-transform: uppercase; }
+    
+    .track-btn { width: 100%; max-width: 250px; padding: 16px; font-size: 16px; font-weight: 700; border-radius: 12px; margin-bottom: 12px; transition: 0.2s; cursor: pointer; border: 2px solid transparent; }
+    .track-btn.pgp { background: var(--accent); color: var(--accent-ink); }
+    .track-btn.pgp:hover { background: var(--accent-hover); transform: translateY(-2px); }
+    .track-btn.hrm { background: #8b5cf6; color: #ffffff; }
+    .track-btn.hrm:hover { background: #7c3aed; transform: translateY(-2px); }
+
+    .hidden { display: none !important; opacity: 0; pointer-events: none; }
+    
+    .user-profile-menu { position: relative; display: flex; align-items: center; cursor: pointer; }
+    .user-profile-menu img { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--line); transition: border-color 0.2s; }
+    .user-profile-menu:hover img { border-color: var(--accent); }
+    
+    .user-dropdown { position: absolute; right: 0; top: 100%; margin-top: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow); display: none; flex-direction: column; min-width: 150px; overflow: hidden; z-index: 1000; }
+    .user-dropdown.show { display: flex; }
+    .user-dropdown button { appearance: none; border: none; border-radius: 0; background: transparent; padding: 12px 16px; text-align: left; font-size: 13px; font-weight: 500; color: var(--ink); cursor: pointer; width: 100%; transition: background-color 0.2s; }
+    .user-dropdown button:hover { background: var(--line); transform: none; }
+
+    header { flex-shrink: 0; display: flex; align-items: center; gap: 14px; padding: max(16px, env(safe-area-inset-top)) 24px 16px 24px; border-bottom: 1px solid var(--line); background: var(--bg); position: relative; z-index: 999; box-shadow: var(--shadow); }
+    .header-controls { display: flex; align-items: center; gap: 10px; }
+    h1 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }
+    h2 { margin: 0 0 4px; font-size: 16px; font-weight: 600; }
+    .status { color: var(--muted); font-size: 13px; font-weight: 500; }
+    .small { color: var(--muted); font-size: 13px; }
+    .spacer { flex: 1; }
+
+    button, .file-button, select.file-button { appearance: none; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink); font: inherit; font-size: 13px; font-weight: 500; padding: 10px 16px; cursor: pointer; white-space: nowrap; transition: all 0.2s; }
+    button:hover:not(:disabled), .file-button:hover { border-color: var(--muted); transform: translateY(-1px); }
+    button.primary, .file-button { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+    button.primary:hover:not(:disabled), .file-button:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+    button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+    button.danger { background: var(--danger-bg); border-color: var(--danger-bg); color: var(--danger-ink); font-weight: 600; }
+    button.danger:hover:not(:disabled) { background: var(--danger-ink); border-color: var(--danger-ink); color: #ffffff; }
+    
+    button.sheets-btn { background: #10b981; border-color: #10b981; color: white; display: flex; align-items: center; gap: 6px; font-weight: 600; }
+    button.sheets-btn:hover:not(:disabled) { background: #059669; border-color: #059669; }
+    input[type="file"] { position: absolute; width: 1px; height: 1px; opacity: 0; }
+
+    select.file-button { padding-right: 32px; text-overflow: ellipsis; max-width: 180px; background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%2364748b%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E"); background-repeat: no-repeat; background-position: right 12px top 50%; background-size: 10px auto; }
+
+    button.icon-btn { background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 10px 16px; font-weight: 500; font-size: 14px; transition: 0.2s; cursor: pointer; }
+    button.icon-btn.active { background: var(--line); box-shadow: inset 0 2px 4px rgba(0,0,0,0.05); }
+
+    .multi-select { position: relative; width: 100%; min-width: 140px; }
+    .multi-select-btn { height: 38px; width: 100%; display: block; text-align: left; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 0 24px 0 12px; font-size: 13px; font-weight: 500; cursor: pointer; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; position: relative; transition: 0.2s; }
+    .multi-select-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .multi-select-btn::after { content: ""; position: absolute; right: 12px; top: 50%; transform: translateY(-50%); border: 4px solid transparent; border-top-color: var(--muted); }
+    .multi-select-menu { position: absolute; top: calc(100% + 4px); left: 0; width: 100%; min-width: 180px; max-height: 250px; overflow-y: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 1000; display: flex; flex-direction: column; }
+    .multi-select-menu.hidden { display: none; }
+    .multi-select-item { padding: 10px 12px; display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px; border-bottom: 1px solid var(--line); color: var(--ink); transition: 0.2s; }
+    .multi-select-item:last-child { border-bottom: none; }
+    .multi-select-item:hover { background: var(--line); }
+    .multi-select-item input { width: 16px; height: 16px; cursor: pointer; accent-color: var(--accent); margin: 0; }
+
+    main { flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden; width: 100%; }
+
+    .tabs-container { flex-shrink: 0; display: flex; flex-wrap: nowrap; gap: 8px; padding: 16px 24px 0; border-bottom: 2px solid var(--line); background: var(--bg); overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; position: relative; z-index: 20; }
+    .tabs-container::-webkit-scrollbar { display: none; }
+    .tab-btn { background: transparent; border: none; color: var(--muted); font-size: 14px; font-weight: 600; padding: 10px 16px 14px; margin-bottom: -2px; border-bottom: 2px solid transparent; border-radius: 0; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+    .tab-btn:hover { color: var(--ink); transform: none; }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+    
+    .tab-content-wrapper { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 24px; min-height: 0; }
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+
+    .filters-panel { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; }
+    
+    /* MODIFIED MAIN SEARCH ROW */
+    .filter-row.main-search { display: flex; align-items: stretch; gap: 8px; flex-wrap: wrap; width: 100%; }
+    .filter-row.main-search input { flex: 1; min-width: 150px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg); color: var(--ink); font: inherit; font-size: 15px; padding: 12px 16px; outline: none; transition: all 0.2s; height: 42px; }
+    .filter-row.main-search input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.2); }
+    #searchTriggerBtn { height: 42px; padding: 0 20px; font-size: 15px; flex-shrink: 0; }
+    .filter-row.main-search > button:not(#searchTriggerBtn) { height: 42px; }
+    
+    .advanced-filters { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; align-items: end; }
+    .date-filter { display: flex; flex-direction: column; gap: 4px; }
+    .date-filter label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .date-filter input { width: 100%; height: 38px; padding: 0 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); font-family: inherit; font-size: 13px; outline: none; cursor: pointer; }
+    [data-theme="dark"] .date-filter input::-webkit-calendar-picker-indicator { filter: invert(1); opacity: 0.7; cursor: pointer; }
+
+    .flashcard-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 16px; }
+    
+    .course.flashcard, .flashcard { display: flex; flex-direction: column; padding: 20px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); box-shadow: 0 1px 3px rgb(0 0 0 / 0.05); transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s; }
+    .course.flashcard:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgb(0 0 0 / 0.08); border-color: var(--accent); }
+    .course.flashcard label { display: flex; align-items: flex-start; gap: 14px; cursor: pointer; flex: 1; margin-bottom: 8px; }
+    .course.flashcard input[type="checkbox"] { width: 20px; height: 20px; margin-top: 2px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+    .card-content { display: flex; flex-direction: column; gap: 6px; flex: 1; }
+    .card-code { font-size: 12px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+    .card-title { font-size: 15px; font-weight: 600; line-height: 1.3; color: var(--ink); }
+    .card-meta { font-size: 13px; color: var(--muted); }
+    .mode-badge { display: inline-block; padding: 3px 8px; border-radius: 6px; background: var(--line); color: var(--ink); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
+    
+    .details-btn { align-self: flex-end; padding: 6px 14px; font-size: 12px; font-weight: 600; background: transparent; border: 1px solid var(--accent); color: var(--accent); border-radius: 6px; cursor: pointer; transition: 0.2s; }
+    .details-btn:hover { background: var(--accent); color: var(--accent-ink); }
+
+    .subhead { display: flex; justify-content: space-between; align-items: end; gap: 12px; margin-bottom: 16px; }
+    .empty { display: grid; place-items: center; min-height: 0; text-align: center; color: var(--muted); padding: 20px; } 
+    .empty strong { display: block; color: var(--ink); font-size: 18px; margin-bottom: 8px; font-weight: 600; }
+    .flashcard-grid .empty { grid-column: 1 / -1; border: 2px dashed var(--line); border-radius: var(--radius); background: transparent; box-shadow: none; min-height: 200px; }
+
+    .table-wrap { width: 100%; overflow-x: auto; overflow-y: hidden; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg); box-shadow: var(--shadow); }
+    #preview.table-wrap { max-height: calc(100dvh - 200px); overflow-y: auto; }
+    .timetable-grid { display: grid; width: max-content; min-width: 100%; }
+    
+    .grid-cell { border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); padding: 10px; min-height: 60px; text-align: center; font-size: 13px; line-height: 1.3; background: var(--bg); display: flex; flex-direction: column; justify-content: center; overflow-wrap: anywhere; }
+    .grid-cell.header, .grid-cell.date { background: var(--header); font-weight: 600; color: var(--ink); }
+    .grid-cell.header { position: sticky; top: 0; z-index: 10; box-shadow: 0 1px 0 var(--line); } 
+    .grid-cell.date { position: sticky; left: 0; z-index: 11; border-right: 2px solid var(--line); font-size: 12px; }
+    .grid-cell.header.date, .grid-cell.header.count { z-index: 12; }
+    
+    .grid-cell.clash { background: var(--danger-bg); color: var(--danger-ink); border-left: 3px solid var(--danger-ink); }
+    .session + .session { border-top: 1px dashed var(--line); margin-top: 6px; padding-top: 6px; }
+
+    .details-table { width: 100%; border-collapse: collapse; font-size: 13px; background: var(--bg); }
+    .details-table th, .details-table td { border: 1px solid var(--line); padding: 12px 14px; text-align: left; vertical-align: middle; }
+    .details-table th { background: var(--table-head-bg); color: var(--table-head-ink); font-weight: 600; white-space: nowrap; }
+
+    .att-cell { cursor: pointer; user-select: none; min-width: 75px; text-align: center !important; transition: opacity 0.2s, background-color 0.2s; }
+    .att-cell:hover { opacity: 0.8; }
+    .att-present { background-color: #dcfce7 !important; color: #166534; }
+    .att-absent { background-color: #fee2e2 !important; color: #991b1b; }
+    [data-theme="dark"] .att-present { background-color: rgba(34, 197, 94, 0.2) !important; color: #86efac; }
+    [data-theme="dark"] .att-absent { background-color: rgba(239, 68, 68, 0.2) !important; color: #fca5a5; }
+    
+    .att-date { font-size: 11px; color: inherit; opacity: 0.75; margin-bottom: 4px; display: block; line-height: 1; }
+    .att-status { font-weight: 700; font-size: 13px; line-height: 1; display: block; margin-top: 4px; }
+    
+    .att-cell:not(.att-present):not(.att-absent) .att-status { background: var(--panel); color: var(--accent); font-weight: 600; font-size: 11px; border: 1px solid var(--accent); border-radius: 6px; padding: 5px 8px; display: inline-block; margin-top: 4px; box-shadow: 0 1px 2px rgb(0 0 0 / 0.05); transition: all 0.2s ease; }
+    .att-cell:not(.att-present):not(.att-absent):hover .att-status { background: var(--accent); color: var(--accent-ink); }
+    .att-cell:not(.att-present):not(.att-absent) .att-date { color: var(--muted); opacity: 0.6; }
+
+    .error { margin: 12px 18px 0; color: var(--danger-ink); font-size: 13px; }
+
+    @media (max-width: 840px) {
+      :root { --col-date: 72px; --col-time: 130px; --col-count: 55px; } 
+      .grid-cell { padding: 8px 4px; min-height: 50px; font-size: 12px; }
+      .grid-cell.date { font-size: 10.5px; word-break: break-word; }
+      .session + .session { margin-top: 6px; padding-top: 6px; }
+      .filter-row.main-search input, .date-filter input, button, select, .file-button { font-size: 16px !important; }
+      header { flex-wrap: wrap; gap: 8px; position: relative; padding: max(14px, env(safe-area-inset-top)) 16px 14px 16px; }
+      header > div:first-child { width: calc(100% - 50px); margin-bottom: 0; } 
+      .spacer { display: none; }
+      .header-controls { width: 100%; display: flex; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-bottom: 4px; gap: 8px; margin-top: 4px; }
+      .header-controls::-webkit-scrollbar { display: none; } 
+      .header-controls > * { flex-shrink: 0; }
+      select#profileSelect { margin-left: 0 !important; }
+      .user-profile-menu { position: absolute; top: max(14px, env(safe-area-inset-top)); right: 16px; } 
+      .tabs-container { padding: 12px 16px 0; }
+      .tab-content-wrapper { padding: 16px; padding-bottom: max(16px, env(safe-area-inset-bottom)); clip-path: inset(0); overscroll-behavior: contain; }
+      #viewTimetable { overflow: hidden; }
+      .tab-content-wrapper { overscroll-behavior-y: contain; }
+      .table-wrap { width: 100%; overflow-x: auto; overflow-y: hidden; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg); box-shadow: var(--shadow); }
+      #preview.table-wrap { margin-bottom: 0 !important; min-height: 0 !important; max-height: calc(100dvh - 240px) !important; overflow-y: auto !important; display: block !important; }
+      #preview.empty { min-height: 50vh; }
+    }
+    @media (hover: none) { button:hover:not(:disabled), .file-button:hover, .tab-btn:hover, label.course.flashcard:hover { transform: none; } button.primary:hover:not(:disabled) { border-color: var(--accent); } }
+  </style>
+</head>
+<body>
+
+  <div id="loadingOverlay" class="hidden"><div class="spinner"></div><div id="loadingMsg">Loading your schedule...</div></div>
+
+  <div id="courseModal" class="modal-overlay">
+    <div class="modal-box">
+      <h3 id="modalCourseName" style="font-size: 18px; margin: 0 0 16px; line-height: 1.3; color: var(--ink);">Course Name</h3>
+      <div class="modal-details" id="modalDetailsContent"></div>
+      <button class="modal-close" id="closeModalBtn">Close</button>
+    </div>
+  </div>
+
+  <div id="masterSheetModal" class="modal-overlay">
+    <div class="modal-box" style="max-width: 500px;">
+      <h3 style="font-size: 18px; margin: 0 0 16px; line-height: 1.3; color: var(--ink);">Master Sheet Configuration</h3>
+      <div style="display: flex; flex-direction: column; gap: 16px;">
+          <div>
+              <label style="font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase;">PGP Track Sheet URL</label>
+              <input type="text" id="adminPgpUrl" placeholder="https://docs.google.com/spreadsheets/d/..." style="width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--line); margin-top: 4px; background: var(--bg); color: var(--ink);">
+              <div style="font-size: 11px; color: var(--muted); margin-top: 6px;" id="pgpLastSync">Last Synced: Never</div>
+          </div>
+          <div>
+              <label style="font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase;">HRM Track Sheet URL</label>
+              <input type="text" id="adminHrmUrl" placeholder="https://docs.google.com/spreadsheets/d/..." style="width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--line); margin-top: 4px; background: var(--bg); color: var(--ink);">
+              <div style="font-size: 11px; color: var(--muted); margin-top: 6px;" id="hrmLastSync">Last Synced: Never</div>
+          </div>
+      </div>
+      <div style="margin-top: 24px; display: flex; gap: 10px; justify-content: flex-end;">
+          <button id="closeMasterSheetModalBtn" style="padding: 10px 16px; font-weight: 600;">Cancel</button>
+          <button id="saveSheetSettingsBtn" class="primary" style="padding: 10px 16px;">Save Configuration</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="loginScreen">
+    <h1>Timetable</h1>
+    <h2>Create your timetable in seconds.</h2>
+    <button id="loginBtn" class="google-btn"><img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="Google Logo">Sign in with Google</button>
+    <div id="loginError" class="error" style="margin-top: 16px;"></div>
+    <div class="credits-footer">Created by Nikhil Tayade</div>
+  </div>
+
+  <div id="onboardingScreen">
+    <h1>Choose Your Program</h1>
+    <h2>Select your track to load the correct master schedule. This will set your default dashboard.</h2>
+    <button id="trackPgpBtn" class="track-btn pgp">PGP Dashboard</button>
+    <button id="trackHrmBtn" class="track-btn hrm">PGP HRM Dashboard</button>
+  </div>
+
+  <div id="adminDashboardScreen" class="hidden">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; width: 100%;">
+      <h1 style="font-size: 28px;">Admin Control Center</h1>
+      <button id="closeAdminBtn" class="danger">Close Dashboard</button>
+    </div>
+    
+    <div style="display: flex; gap: 16px; margin-bottom: 24px; width: 100%; flex-wrap: wrap;">
+       <div class="flashcard" style="flex: 1; padding: 20px; min-width: 200px;">
+           <h3 style="margin:0 0 8px; color: var(--muted); font-size: 14px; text-transform: uppercase;">Total Students</h3>
+           <h2 id="metricTotal" style="margin:0; font-size: 32px; color: var(--accent);">0</h2>
+       </div>
+       <div class="flashcard" style="flex: 1; padding: 20px; min-width: 200px;">
+           <h3 style="margin:0 0 8px; color: var(--muted); font-size: 14px; text-transform: uppercase;">PGP Track</h3>
+           <h2 id="metricPGP" style="margin:0; font-size: 32px; color: var(--ink);">0</h2>
+       </div>
+       <div class="flashcard" style="flex: 1; padding: 20px; min-width: 200px;">
+           <h3 style="margin:0 0 8px; color: var(--muted); font-size: 14px; text-transform: uppercase;">HRM Track</h3>
+           <h2 id="metricHRM" style="margin:0; font-size: 32px; color: var(--ink);">0</h2>
+       </div>
+    </div>
+    
+    
+    
+    <input type="search" id="adminSearchUser" placeholder="Search by email, name, or UID..." style="padding: 14px 16px; width: 100%; max-width: 600px; margin-bottom: 20px; border: 1px solid var(--line); border-radius: 8px; font-size: 15px; background: var(--bg); color: var(--ink); align-self: flex-start;">
+    
+    <div class="table-wrap" style="width: 100%;">
+       <table class="details-table" style="width: 100%;">
+        <thead>
+             <tr>
+                 <th style="min-width: 250px;">Student Name / Email</th>
+                 <th style="min-width: 160px;">UID</th>
+                 <th style="min-width: 120px;">Program Track</th>
+                 <th style="min-width: 100px; text-align: center;">Saved Profiles</th>
+                 <th style="min-width: 160px;">Admin Actions</th>
+             </tr>
+          </thead>
+          <tbody id="adminUsersTableBody"></tbody>
+       </table>
+    </div>
+  </div>
+
+  <header class="hidden" id="appHeader">
+    <div><h1>Timetable</h1><div class="status" id="status">Loading master schedule...</div></div>
+    <div class="spacer"></div>
+    <div class="header-controls">
+      <button id="openAdminDashboardBtn" class="primary hidden" style="background: #ef4444; border-color: #ef4444; margin-right: 4px;">Admin Panel</button>
+      <button id="masterSheetConfigBtn" class="primary hidden" style="background:#14b8a6; border-color:#14b8a6; margin-right: 4px;">Master Sheets</button>
+      <select id="adminTrackSelect" class="file-button hidden" style="background: var(--panel); color: var(--ink); border-color: var(--line); outline: none; font-weight: 700; margin-right: 4px;">
+          <option value="PGP">View: PGP</option>
+          <option value="HRM">View: HRM</option>
+      </select>
+      <button id="manageSheetLinkBtn" class="file-button hidden" style="background:#14b8a6;color:white;border-color:#14b8a6;">Insert Sheet Link</button>
+      <button id="syncSheetBtn" class="file-button hidden" style="background: #8b5cf6; color: white; border-color: #8b5cf6;">Sync Master Sheet</button>
+      <label class="file-button hidden" id="importLabel" style="background: #eab308; color: black; border-color: #eab308;">Upload Excel<input id="fileInput" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"></label>
+      <button id="createBtn" class="primary hidden" disabled>Create Timetable</button>
+      <select id="profileSelect" class="file-button hidden" style="background: var(--bg); color: var(--ink); border-color: var(--line); outline: none;"></select>
+      <button id="saveAsBtn" class="hidden" style="background: #38bdf8; color: black; border-color: #38bdf8;">Save</button>
+      <button id="saveAttBtn" class="primary hidden" style="background: #10b981; border-color: #10b981;">Save Attendance</button>
+      <button id="newBtn">New</button>
+      <button id="deleteBtn" class="danger hidden">Delete Profile</button>
+      <button id="exportBtn" class="hidden sheets-btn" disabled>
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-3.9 14H7v-2h8.1v2zm2-4H7v-2h10.1v2zm0-4H7V7h10.1v2z"/></svg>
+          Export
+      </button>
+    </div>
+    <div class="user-profile-menu" id="userMenuContainer">
+      <img id="userAvatar" src="" alt="User" title="Profile">
+      <div class="user-dropdown" id="userDropdown">
+        <button id="profileItem">Profile</button>
+        <button id="refreshBtn">Clear Cache</button>
+        <button id="reloadAppBtn">Refresh App</button>
+        <button id="wipeDataBtn" style="color: #ef4444; font-weight: 600;">Delete My Data</button>
+        <button id="themeToggle">Dark Mode 🌙</button>
+        <button id="logoutBtn">Logout</button>
+      </div>
+    </div>
+  </header>
+  
+  <div id="error" class="error" hidden></div>
+  
+  <main id="mainContent" class="hidden">
+    <div class="tabs-container">
+      <button id="tabSelection" class="tab-btn active">Course Selection</button>
+      <button id="tabTimetable" class="tab-btn">Timetable Grid</button>
+      <button id="tabCourses" class="tab-btn">Selected Courses</button>
+      <button id="tabAttendance" class="tab-btn">Attendance Tracker</button>
+    </div>
+
+    <div class="tab-content-wrapper">
+      <div id="viewSelection" class="tab-pane active">
+        <div class="filters-panel" id="courseSearchWrapper">
+          <div class="filter-row main-search">
+            <input id="courseSearch" type="search" placeholder="Search course name, code, or area..." disabled>
+            <button id="searchTriggerBtn" class="primary" style="padding: 12px 18px;" disabled>Search</button>
+            <button id="toggleFiltersBtn" class="icon-btn" disabled>⚙️ Filters</button>
+            <button id="toggleSelectedBtn" class="icon-btn" disabled>Show Selected (0)</button>
+            <button id="selectAll" disabled>Select All</button>
+            <button id="clearAll" disabled>Clear</button>
+          </div>
+          
+          <div class="advanced-filters hidden" id="advancedFilters">
+            <div class="multi-select" id="areaFilterContainer">
+              <button type="button" class="multi-select-btn" id="areaFilterBtn" disabled>All Areas</button>
+              <div class="multi-select-menu hidden" id="areaFilterMenu"></div>
+            </div>
+            <div class="multi-select" id="modeFilterContainer">
+              <button type="button" class="multi-select-btn" id="modeFilterBtn" disabled>All Modes</button>
+              <div class="multi-select-menu hidden" id="modeFilterMenu"></div>
+            </div>
+            <div class="multi-select" id="creditFilterContainer">
+              <button type="button" class="multi-select-btn" id="creditFilterBtn" disabled>All Credits</button>
+              <div class="multi-select-menu hidden" id="creditFilterMenu"></div>
+            </div>
+            <select id="sisterFilter" class="file-button" style="background: var(--bg); color: var(--ink); border-color: var(--line); outline: none; height: 38px;" disabled>
+              <option value="All">Sister Sec: Any</option>
+              <option value="Yes">Sister Sec: Allowed</option>
+              <option value="No">Sister Sec: None</option>
+            </select>
+            <div class="date-filter"><label>Start Date From</label><input type="date" id="startFilter" disabled onclick="try{this.showPicker()}catch(e){}"></div>
+            <div class="date-filter"><label>End Date Until</label><input type="date" id="endFilter" disabled onclick="try{this.showPicker()}catch(e){}"></div>
+            <div style="display: flex; align-items: flex-end;"><button id="clearFiltersBtn" disabled style="width: 100%; height: 38px;">Reset Filters</button></div>
+          </div>
+        </div>
+        
+        <div class="subhead">
+          <h2 style="margin:0;">Available Courses</h2>
+          <div class="small" id="courseCount" style="font-weight: 600;">No workbook loaded</div>
+        </div>
+        <div class="flashcard-grid" id="courseList"></div>
+      </div>
+
+      <div id="viewTimetable" class="tab-pane">
+        <div class="subhead"><div><h2>Personal Timetable</h2><div class="small" id="rowCount">No selected classes yet</div></div></div>
+        <div id="preview" class="empty"><div><strong>Choose your courses</strong><br>Select courses from the Course Selection tab and click Create Timetable.</div></div>
+      </div>
+
+      <div id="viewCourses" class="tab-pane">
+        <div class="subhead"><div><h2>Selected Courses Details</h2><div class="small" id="courseDetailsCount">No selected classes yet</div></div></div>
+        <div id="coursesPreview" class="empty"><div><strong>No courses selected</strong><br>Select your courses, then click Create Timetable to build the details view here.</div></div>
+      </div>
+
+      <div id="viewAttendance" class="tab-pane">
+        <div class="subhead"><div><h2>Attendance Tracker</h2><div class="small" id="attendanceCount">No selected classes yet</div></div></div>
+        <div id="attendancePreview" class="empty"><div><strong>No courses selected</strong><br>Select your courses, then click Create Timetable to build the tracker here.</div></div>
+      </div>
+    </div>
+  </main>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth, signInWithRedirect, getRedirectResult, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getFirestore, doc, setDoc, getDoc, collection, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+      
+    const ADMIN_EMAIL = "tayadesnikhil@gmail.com";
+    
+    const firebaseConfig = {
+      apiKey: "AIzaSyDcx5O9SUhpb5N8-XaStrcGf63eE9EEdOs",
+      authDomain: "mba-timetable-maker.web.app", 
+      projectId: "mba-timetable-maker",
+      storageBucket: "mba-timetable-maker.firebasestorage.app",
+      messagingSenderId: "981801408590",
+      appId: "1:981801408590:web:e347f8ee42b7a23f7a4b1f",
+      measurementId: "G-9PJ9YNM825"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const provider = new GoogleAuthProvider();
+
+    getRedirectResult(auth).catch((error) => {
+      console.error("Redirect Authentication Error:", error);
+      els.loginError.textContent = "Sign-in failed: " + error.message;
+      hideLoading();
+    });
+
+    const state = { 
+      data: null, selected: new Set(), search: "", generatedRows: null,
+      attendance: {}, currentUser: null, profiles: {}, currentProfile: null, userTrack: null,
+      unsavedChanges: false, showSelectedOnly: false
+    };
+
+    function safeSetLocal(key, value) { try { localStorage.setItem(key, value); } catch(e) {} }
+    function safeGetLocal(key) { try { return localStorage.getItem(key); } catch(e) { return null; } }
+
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const loadingMsg = document.getElementById('loadingMsg');
+    
+    function showLoading(msg) { loadingMsg.textContent = msg; loadingOverlay.classList.remove('hidden'); }
+    function hideLoading() { loadingOverlay.classList.add('hidden'); }
+
+    function extractSheetId(url) {
+        if (!url) return null;
+        const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
+        return match ? match[1] : null;
+    }
+
+    async function loadSheetSettings() {
+        try {
+            const docSnap = await getDoc(doc(db, "settings", "masterSheets"));
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                document.getElementById("adminPgpUrl").value = data.pgpUrl || "";
+                document.getElementById("adminHrmUrl").value = data.hrmUrl || "";
+                document.getElementById("pgpLastSync").textContent = data.lastSync_PGP ? `Last Synced: ${new Date(data.lastSync_PGP).toLocaleString()}` : "Last Synced: Never";
+                document.getElementById("hrmLastSync").textContent = data.lastSync_HRM ? `Last Synced: ${new Date(data.lastSync_HRM).toLocaleString()}` : "Last Synced: Never";
+            }
+        } catch(e) { console.error("Error loading settings:", e); }
+    }
+
+    async function saveExcelCache(data) {
+      if (!state.currentUser || state.currentUser.email !== ADMIN_EMAIL) { alert("Only the admin can update the master schedule."); return; }
+      try {
+        const compressedData = JSON.stringify(data);
+        const track = state.userTrack; 
+        await setDoc(doc(db, "global", `masterSchedule_${track}`), { masterData: compressedData });
+        safeSetLocal(`globalScheduleCache_${track}`, compressedData);
+        alert(`Global Master Schedule successfully updated for ${track} Track!`);
+      } catch (e) { console.error("Global save failed:", e); alert("Cloud save failed."); }
+    }
+
+    async function loadExcelCache() {
+      if (!state.userTrack) return null;
+      const cacheKey = `globalScheduleCache_${state.userTrack}`;
+      const docName = `masterSchedule_${state.userTrack}`;
+
+      const localData = safeGetLocal(cacheKey);
+      if (localData) {
+          state.data = JSON.parse(localData);
+          populateFilters();
+          els.mainContent.classList.remove("hidden");
+          els.status.textContent = `${state.userTrack} loaded offline. Syncing...`;
+      }
+      try {
+        const docSnap = await getDoc(doc(db, "global", docName));
+        if (docSnap.exists() && docSnap.data().masterData) {
+          const rawData = docSnap.data().masterData;
+          safeSetLocal(cacheKey, typeof rawData === 'string' ? rawData : JSON.stringify(rawData));
+          return typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
+        }
+      } catch (e) { console.error("Global load failed:", e); }
+      return state.data;
+    }
+
+    async function loadUserData() {
+      if (!state.currentUser) return;
+      const localUserData = safeGetLocal(`userCache_${state.currentUser.uid}`);
+      let localTimestamp = 0;
+
+      if (localUserData) {
+          try {
+              const d = JSON.parse(localUserData);
+              localTimestamp = d.lastUpdated || 0;
+              if (d.profiles && Object.keys(d.profiles).length > 0) {
+                state.profiles = d.profiles; state.currentProfile = d.lastProfile || Object.keys(state.profiles)[0];
+                updateProfileDropdown();
+                const active = state.profiles[state.currentProfile];
+                state.selected = new Set(active.selected || []); state.attendance = active.attendance || {};
+              }
+          } catch(e) {}
+      }
+      try {
+        const docSnap = await getDoc(doc(db, "users", state.currentUser.uid));
+        if (docSnap.exists()) {
+          const d = docSnap.data();
+          const cloudTimestamp = d.lastUpdated || 0;
+          
+          if (cloudTimestamp >= localTimestamp || !localUserData) {
+              safeSetLocal(`userCache_${state.currentUser.uid}`, JSON.stringify(d));
+              if (d.profiles && Object.keys(d.profiles).length > 0) {
+                state.profiles = d.profiles; state.currentProfile = d.lastProfile || Object.keys(state.profiles)[0];
+                updateProfileDropdown();
+                const active = state.profiles[state.currentProfile];
+                state.selected = new Set(active.selected || []); state.attendance = active.attendance || {};
+              }
+          } else {
+              await setDoc(doc(db, "users", state.currentUser.uid), JSON.parse(localUserData), { merge: true });
+          }
+        }
+      } catch (e) { console.error("Failed to load user data from cloud:", e); }
+    }
+
+    const els = {
+      loginScreen: document.getElementById("loginScreen"), loginBtn: document.getElementById("loginBtn"), loginError: document.getElementById("loginError"),
+      appHeader: document.getElementById("appHeader"), mainContent: document.getElementById("mainContent"),
+      onboardingScreen: document.getElementById("onboardingScreen"), trackPgpBtn: document.getElementById("trackPgpBtn"), trackHrmBtn: document.getElementById("trackHrmBtn"),
+      
+      adminDashboardScreen: document.getElementById("adminDashboardScreen"), openAdminDashboardBtn: document.getElementById("openAdminDashboardBtn"), closeAdminBtn: document.getElementById("closeAdminBtn"),
+      adminSearchUser: document.getElementById("adminSearchUser"), adminUsersTableBody: document.getElementById("adminUsersTableBody"), adminTrackSelect: document.getElementById("adminTrackSelect"),
+
+      userMenuContainer: document.getElementById("userMenuContainer"), userAvatar: document.getElementById("userAvatar"), userDropdown: document.getElementById("userDropdown"),
+      profileItem: document.getElementById("profileItem"), logoutBtn: document.getElementById("logoutBtn"), refreshBtn: document.getElementById("refreshBtn"),
+      reloadAppBtn: document.getElementById("reloadAppBtn"), wipeDataBtn: document.getElementById("wipeDataBtn"),
+      syncSheetBtn: document.getElementById("syncSheetBtn"), // ADMIN SYNC BTN
+      importLabel: document.getElementById("importLabel"), fileInput: document.getElementById("fileInput"), status: document.getElementById("status"), error: document.getElementById("error"),
+      courseModal: document.getElementById("courseModal"), modalCourseName: document.getElementById("modalCourseName"), modalDetailsContent: document.getElementById("modalDetailsContent"), closeModalBtn: document.getElementById("closeModalBtn"),
+      
+      courseList: document.getElementById("courseList"), courseSearchWrapper: document.getElementById("courseSearchWrapper"), courseSearch: document.getElementById("courseSearch"), 
+      searchTriggerBtn: document.getElementById("searchTriggerBtn"), toggleFiltersBtn: document.getElementById("toggleFiltersBtn"), toggleSelectedBtn: document.getElementById("toggleSelectedBtn"),
+      courseCount: document.getElementById("courseCount"), rowCount: document.getElementById("rowCount"), preview: document.getElementById("preview"), selectAll: document.getElementById("selectAll"), clearAll: document.getElementById("clearAll"), 
+      
+      createBtn: document.getElementById("createBtn"), saveAsBtn: document.getElementById("saveAsBtn"), saveAttBtn: document.getElementById("saveAttBtn"), profileSelect: document.getElementById("profileSelect"), newBtn: document.getElementById("newBtn"), 
+      deleteBtn: document.getElementById("deleteBtn"), exportBtn: document.getElementById("exportBtn"),
+      advancedFilters: document.getElementById("advancedFilters"),
+      areaFilterBtn: document.getElementById("areaFilterBtn"), areaFilterMenu: document.getElementById("areaFilterMenu"), modeFilterBtn: document.getElementById("modeFilterBtn"), modeFilterMenu: document.getElementById("modeFilterMenu"),
+      creditFilterBtn: document.getElementById("creditFilterBtn"), creditFilterMenu: document.getElementById("creditFilterMenu"),
+      sisterFilter: document.getElementById("sisterFilter"), startFilter: document.getElementById("startFilter"), endFilter: document.getElementById("endFilter"), clearFiltersBtn: document.getElementById("clearFiltersBtn"),
+      tabSelection: document.getElementById("tabSelection"), tabTimetable: document.getElementById("tabTimetable"), tabCourses: document.getElementById("tabCourses"), tabAttendance: document.getElementById("tabAttendance"),
+      viewSelection: document.getElementById("viewSelection"), viewTimetable: document.getElementById("viewTimetable"), viewCourses: document.getElementById("viewCourses"), viewAttendance: document.getElementById("viewAttendance"),
+      coursesPreview: document.getElementById("coursesPreview"), courseDetailsCount: document.getElementById("courseDetailsCount"), attendancePreview: document.getElementById("attendancePreview"), attendanceCount: document.getElementById("attendanceCount"),
+    
+
+      // Add these to the list:
+      masterSheetConfigBtn: document.getElementById("masterSheetConfigBtn"),
+      masterSheetModal: document.getElementById("masterSheetModal"),
+      closeMasterSheetModalBtn: document.getElementById("closeMasterSheetModalBtn")
+    };
+
+    function base64ToUint8Array(base64) {
+        const binary_string = window.atob(base64);
+        const len = binary_string.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+            bytes[i] = binary_string.charCodeAt(i);
+        }
+        return bytes;
+    }
+
+    async function silentAutoSync(sheetId) {
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwdfg5pJOS5FGQoWIBtY1iRU0OY1IWOxfY7KALaXY4mUFQzMOm39Bx0k8FWA3-b1BYXoQ/exec"; 
+        const SECRET = "TIMETABLE_SECURE_SYNC_2026";
+        
+        try {
+            const response = await fetch(`${WEB_APP_URL}?sheetId=${sheetId}&secret=${SECRET}`);
+            const data = await response.json();
+            
+            if (data.error) throw new Error(data.error);
+            
+            const bytes = base64ToUint8Array(data.base64);
+            state.data = await parseWorkbook(bytes);
+            
+            state.search = ""; 
+            state.generatedRows = null;
+            populateFilters(); 
+            
+            // Auto-cache it globally if an admin is the one logging in
+            if (state.currentUser && state.currentUser.email === ADMIN_EMAIL) {
+                await saveExcelCache(state.data);
+                await setDoc(doc(db, "settings", "masterSheets"), {
+                    [`lastSync_${state.userTrack}`]: Date.now()
+                }, { merge: true });
+            }
+            
+            return true;
+        } catch (error) {
+            console.error("Silent sync failed:", error);
+            return false;
+        }
+    }
+
+    // Auto-sync every 5 minutes (300,000 milliseconds) if a sheet is configured
+    setInterval(async () => {
+        if (!state.userTrack) return;
+        
+        try {
+            const snap = await getDoc(doc(db, "settings", "masterSheets"));
+            if (snap.exists()) {
+                const data = snap.data();
+                const targetId = state.userTrack === "PGP" ? data.pgpSheetId : data.hrmSheetId;
+                
+                if (targetId) {
+                    // We don't update the status text here so it doesn't distract the user
+                    const success = await silentAutoSync(targetId);
+                    if (success && state.currentProfile && state.selected.size > 0) {
+                        createTimetable(false); // Silently updates the UI with any changes
+                    }
+                }
+            }
+        } catch (e) {
+            console.error("Background interval sync failed:", e);
+        }
+    }, 300000); 
+
+    function markUnsaved() { state.unsavedChanges = true; els.saveAttBtn.classList.remove("hidden"); }
+    function clearUnsaved() { state.unsavedChanges = false; els.saveAttBtn.classList.add("hidden"); }
+
+    onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        if (!user.email.endsWith('@iimidr.ac.in') && user.email !== ADMIN_EMAIL) {
+           await signOut(auth); els.loginScreen.style.display = "flex"; els.loginError.textContent = "Access restricted to @iimidr.ac.in accounts."; hideLoading(); return;
+        }
+        state.currentUser = user; 
+        els.userAvatar.src = user.photoURL || "https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png";
+        els.loginScreen.style.display = "none"; els.loginScreen.classList.add("hidden"); 
+
+        showLoading("Verifying your profile...");
+
+        try {
+            const fallbackName = user.email.split('@')[0];
+            const finalName = user.displayName ? user.displayName : fallbackName;
+
+            await setDoc(doc(db, "users", user.uid), { 
+                email: user.email, 
+                name: finalName, 
+                lastLogin: Date.now() 
+            }, { merge: true });
+
+            const userDoc = await getDoc(doc(db, "users", user.uid));
+            if (userDoc.exists() && userDoc.data().programTrack) {
+                state.userTrack = userDoc.data().programTrack;
+                launchWorkspace();
+            } else if (user.email === ADMIN_EMAIL) {
+                state.userTrack = "PGP"; 
+                await setDoc(doc(db, "users", user.uid), { programTrack: "PGP" }, { merge: true });
+                launchWorkspace();
+            } else {
+                hideLoading();
+                els.onboardingScreen.style.display = "flex";
+                els.onboardingScreen.classList.remove("hidden");
+            }
+        } catch (e) {
+            console.error("Profile check error:", e);
+            showError("Failed to load user profile.");
+            hideLoading();
+        }
+
+      } else {
+        state.currentUser = null; state.selected.clear(); state.attendance = {}; state.profiles = {}; state.currentProfile = null; state.userTrack = null; clearUnsaved();
+        els.loginScreen.style.display = "flex"; els.loginScreen.classList.remove("hidden"); els.appHeader.classList.add("hidden");
+        els.onboardingScreen.style.display = "none"; els.onboardingScreen.classList.add("hidden");
+        els.adminDashboardScreen.style.display = "none"; els.adminDashboardScreen.classList.add("hidden");
+        els.mainContent.classList.add("hidden"); els.userDropdown.classList.remove("show"); els.importLabel.classList.add("hidden"); els.adminTrackSelect.classList.add("hidden"); 
+        els.openAdminDashboardBtn.classList.add("hidden"); els.syncSheetBtn.classList.add("hidden"); hideLoading();
+      }
+    });
+
+    function launchWorkspace() {
+        els.onboardingScreen.style.display = "none";
+        els.onboardingScreen.classList.add("hidden");
+        els.appHeader.classList.remove("hidden");
+
+        if (state.currentUser.email === ADMIN_EMAIL) {
+            els.importLabel.classList.remove("hidden");
+            els.adminTrackSelect.classList.remove("hidden");
+            els.syncSheetBtn.classList.remove("hidden");
+            els.openAdminDashboardBtn.classList.remove("hidden");
+             els.masterSheetConfigBtn.classList.remove("hidden");
+            els.adminTrackSelect.value = state.userTrack; 
+
+            
+        }
+
+        state.data = null;
+        render();
+        switchTab('Selection');
+        
+        showLoading(`Loading ${state.userTrack} schedule...`);
+        
+        let cacheReady = false;
+        const localExcel = safeGetLocal(`globalScheduleCache_${state.userTrack}`);
+        const localUser = safeGetLocal(`userCache_${state.currentUser.uid}`);
+        
+        if (localExcel) {
+            state.data = JSON.parse(localExcel);
+            populateFilters();
+            els.mainContent.classList.remove("hidden");
+            els.status.textContent = `${state.userTrack} loaded offline. Syncing...`;
+            cacheReady = true;
+            
+            if (localUser) {
+                const d = JSON.parse(localUser);
+                if (d.profiles && Object.keys(d.profiles).length > 0) {
+                    state.profiles = d.profiles; state.currentProfile = d.lastProfile || Object.keys(state.profiles)[0];
+                    updateProfileDropdown();
+                    const active = state.profiles[state.currentProfile];
+                    state.selected = new Set(active.selected || []); state.attendance = active.attendance || {};
+                }
+            }
+            if (state.currentProfile && state.selected.size > 0) { createTimetable(false); switchTab('Timetable'); } else { switchTab('Selection'); render(); }
+            hideLoading();
+        }
+
+       Promise.all([loadExcelCache(), loadUserData()]).then(async ([cloudExcel]) => {
+            if (cloudExcel) { state.data = cloudExcel; populateFilters(); }
+            
+            if (!cacheReady) {
+               els.mainContent.classList.remove("hidden");
+               if (state.data) { if (state.currentProfile && state.selected.size > 0) { createTimetable(false); switchTab('Timetable'); } else { switchTab('Selection'); render(); } } 
+               else { els.status.textContent = `Waiting for admin to configure ${state.userTrack} Master Schedule.`; }
+               hideLoading();
+            } else { 
+               render(); 
+            }
+
+            // --- THE NEW SILENT SYNC TRIGGER ---
+            els.status.textContent = `Checking for background updates...`;
+            try {
+                const snap = await getDoc(doc(db, "settings", "masterSheets"));
+                if (snap.exists()) {
+                    const data = snap.data();
+                    const targetId = state.userTrack === "PGP" ? data.pgpSheetId : data.hrmSheetId;
+                    
+                    if (targetId) {
+                        const success = await silentAutoSync(targetId);
+                        if (success) {
+                            els.status.textContent = `${state.userTrack} schedule is up to date.`;
+                            // Refresh the view if the data changed silently
+                            if (state.currentProfile && state.selected.size > 0) { createTimetable(false); } else { render(); }
+                        } else {
+                            els.status.textContent = `Using cached ${state.userTrack} schedule (background sync failed).`;
+                        }
+                    } else {
+                         els.status.textContent = `No Master Sheet configured for ${state.userTrack} yet.`;
+                    }
+                }
+            } catch (e) { console.error(e); }
+
+        }).catch((error) => { 
+            console.error("Cloud Error:", error); 
+            els.status.textContent = "Offline mode active."; 
+            if (!cacheReady) hideLoading(); 
+        });
+    }
+
+    let adminUsersList = [];
+    
+    els.openAdminDashboardBtn.addEventListener("click", () => {
+        els.adminDashboardScreen.style.display = "flex";
+        els.adminDashboardScreen.classList.remove("hidden");
+        loadAdminData();
+        
+    });
+
+    els.closeAdminBtn.addEventListener("click", () => {
+        els.adminDashboardScreen.style.display = "none";
+        els.adminDashboardScreen.classList.add("hidden");
+    });
+
+    els.masterSheetConfigBtn.addEventListener("click", () => {
+        els.masterSheetModal.classList.add("show");
+        loadSheetSettings();
+    });
+
+    els.closeMasterSheetModalBtn.addEventListener("click", () => {
+        els.masterSheetModal.classList.remove("show");
+    });
+    
+    // Optional: Close modal if clicking outside the box
+    els.masterSheetModal.addEventListener("click", (e) => {
+        if (e.target === els.masterSheetModal) els.masterSheetModal.classList.remove("show");
+    });
+
+    async function loadAdminData() {
+        showLoading("Fetching entire user database...");
+        try {
+            const querySnapshot = await getDocs(collection(db, "users"));
+            adminUsersList = [];
+            querySnapshot.forEach((doc) => { adminUsersList.push({ id: doc.id, ...doc.data() }); });
+            renderAdminTable();
+        } catch (e) {
+            console.error(e);
+            alert("Failed to load users. Ensure your Firestore Security Rules are updated as requested.");
+        }
+        hideLoading();
+    }
+
+    function renderAdminTable() {
+        const query = els.adminSearchUser.value.toLowerCase();
+        const filtered = adminUsersList.filter(u => 
+            (u.email || "").toLowerCase().includes(query) || 
+            (u.name || "").toLowerCase().includes(query) || 
+            u.id.toLowerCase().includes(query)
+        );
+        
+        let pgpCount = 0; let hrmCount = 0;
+        adminUsersList.forEach(u => {
+            if(u.programTrack === "PGP") pgpCount++;
+            if(u.programTrack === "HRM") hrmCount++;
+        });
+        
+        document.getElementById("metricTotal").textContent = adminUsersList.length;
+        document.getElementById("metricPGP").textContent = pgpCount;
+        document.getElementById("metricHRM").textContent = hrmCount;
+        
+        els.adminUsersTableBody.innerHTML = filtered.map(u => {
+            const profilesCount = u.profiles ? Object.keys(u.profiles).length : 0;
+            return `<tr>
+                <td><strong>${escapeHTML(u.name || "Unknown Name")}</strong><br><span style="font-size:11px; color:var(--muted);">${escapeHTML(u.email || "No Email")}</span></td>
+                <td style="font-family: monospace; font-size: 11px; color: var(--muted);">${escapeHTML(u.id)}</td>
+                <td>
+                    <select class="admin-track-select file-button" data-uid="${u.id}" style="padding: 6px 24px 6px 12px; height: auto;">
+                        <option value="PGP" ${u.programTrack==="PGP"?"selected":""}>PGP</option>
+                        <option value="HRM" ${u.programTrack==="HRM"?"selected":""}>HRM</option>
+                    </select>
+                </td>
+                <td style="font-weight: 600; text-align: center;">${profilesCount}</td>
+                <td>
+                    <button class="danger clear-user-btn" data-uid="${u.id}" style="padding: 6px 10px; font-size: 11px; margin-right: 4px;">Clear Data</button>
+                    <button class="primary delete-user-btn" data-uid="${u.id}" style="padding: 6px 10px; font-size: 11px; background: #7f1d1d; border-color: #7f1d1d;">Obliterate</button>
+                </td>
+            </tr>`;
+        }).join("");
+    }
+    
+    els.adminSearchUser.addEventListener("input", renderAdminTable);
+
+    els.adminUsersTableBody.addEventListener("change", async (e) => {
+        if(e.target.classList.contains("admin-track-select")) {
+            const uid = e.target.getAttribute("data-uid");
+            const newTrack = e.target.value;
+            showLoading("Updating user track...");
+            await setDoc(doc(db, "users", uid), { programTrack: newTrack }, { merge: true });
+            const user = adminUsersList.find(u => u.id === uid);
+            if(user) user.programTrack = newTrack;
+            renderAdminTable();
+            hideLoading();
+        }
+    });
+
+    els.adminUsersTableBody.addEventListener("click", async (e) => {
+        if(e.target.classList.contains("clear-user-btn")) {
+            const uid = e.target.getAttribute("data-uid");
+            if(confirm("Are you sure you want to clear all saved profiles and attendance for this user? This cannot be undone.")) {
+                showLoading("Wiping user data...");
+                await setDoc(doc(db, "users", uid), { profiles: {}, lastProfile: null }, { merge: true });
+                const user = adminUsersList.find(u => u.id === uid);
+                if(user) { user.profiles = {}; user.lastProfile = null; }
+                renderAdminTable();
+                hideLoading();
+            }
+        }
+        if(e.target.classList.contains("delete-user-btn")) {
+            const uid = e.target.getAttribute("data-uid");
+            if(confirm("CRITICAL WARNING: This will permanently delete this user's entire database document. They will be forced to restart the onboarding process on their next login. Proceed?")) {
+                showLoading("Obliterating user record...");
+                await deleteDoc(doc(db, "users", uid));
+                adminUsersList = adminUsersList.filter(u => u.id !== uid);
+                renderAdminTable();
+                hideLoading();
+            }
+        }
+    });
+
+    document.getElementById("saveSheetSettingsBtn").addEventListener("click", async () => {
+        const pgpUrl = document.getElementById("adminPgpUrl").value.trim();
+        const hrmUrl = document.getElementById("adminHrmUrl").value.trim();
+        const pgpSheetId = extractSheetId(pgpUrl);
+        const hrmSheetId = extractSheetId(hrmUrl);
+
+        if (pgpUrl && !pgpSheetId) return alert("Invalid Google Sheet URL for PGP.");
+        if (hrmUrl && !hrmSheetId) return alert("Invalid Google Sheet URL for HRM.");
+
+        showLoading("Saving configuration...");
+        try {
+            await setDoc(doc(db, "settings", "masterSheets"), {
+                pgpUrl, pgpSheetId, hrmUrl, hrmSheetId
+            }, { merge: true });
+            alert("Sheet Configurations Saved Successfully!");
+            els.masterSheetModal.classList.remove("show");
+        } catch (e) {
+            console.error(e);
+            alert("Failed to save settings. Check Firestore permissions.");
+        }
+        hideLoading();
+    });
+
+    async function setProgramTrack(track) {
+        showLoading(`Setting up ${track} workspace...`);
+        state.userTrack = track;
+        try {
+            await setDoc(doc(db, "users", state.currentUser.uid), { programTrack: track }, { merge: true });
+            launchWorkspace();
+        } catch (e) {
+            console.error("Failed to set track", e);
+            alert("Failed to save preference. Please try again.");
+            hideLoading();
+        }
+    }
+
+    els.trackPgpBtn.addEventListener("click", () => setProgramTrack("PGP"));
+    els.trackHrmBtn.addEventListener("click", () => setProgramTrack("HRM"));
+
+    els.adminTrackSelect.addEventListener("change", (e) => {
+        state.userTrack = e.target.value; state.selected.clear(); state.generatedRows = null; clearUnsaved();
+        setDoc(doc(db, "users", state.currentUser.uid), { programTrack: state.userTrack }, { merge: true });
+        launchWorkspace();
+    });
+
+    els.loginBtn.addEventListener("click", () => {
+      els.loginError.textContent = ""; showLoading("Redirecting to login...");
+      setPersistence(auth, browserLocalPersistence).then(() => signInWithRedirect(auth, provider)).catch((error) => { hideLoading(); els.loginError.textContent = error.message; });
+    });
+
+    els.userAvatar.addEventListener("click", (e) => { els.userDropdown.classList.toggle("show"); e.stopPropagation(); });
+    document.addEventListener("click", (e) => { 
+        if (!els.userMenuContainer.contains(e.target)) els.userDropdown.classList.remove("show"); 
+        if (!e.target.closest('.multi-select')) { document.querySelectorAll('.multi-select-menu').forEach(m => m.classList.add('hidden')); }
+    });
+    els.profileItem.addEventListener("click", () => { alert("Logged in as: " + (state.currentUser?.email || "Unknown")); els.userDropdown.classList.remove("show"); });
+    
+    els.refreshBtn.addEventListener("click", async () => {
+        if (state.unsavedChanges && !confirm("You have unsaved attendance. Discard changes and clear cache?")) { document.getElementById("userDropdown").classList.remove("show"); return; }
+        if (!state.unsavedChanges && !confirm("Do you want to clear cache? This will reload the master schedule.")) { document.getElementById("userDropdown").classList.remove("show"); return; }
+        
+        showLoading("Syncing & clearing cache...");
+        if (state.currentProfile) await syncActiveProfile();
+        localStorage.removeItem("globalScheduleCache_PGP"); 
+        localStorage.removeItem("globalScheduleCache_HRM"); 
+        const url = window.location.href.split('?')[0]; 
+        window.location.href = url + '?v=' + Date.now();
+    });
+
+    els.reloadAppBtn.addEventListener("click", () => {
+        if (state.unsavedChanges && !confirm("You have unsaved attendance. Discard changes and refresh?")) { document.getElementById("userDropdown").classList.remove("show"); return; }
+        const url = window.location.href.split('?')[0]; 
+        window.location.href = url + '?v=' + Date.now();
+    });
+
+    els.wipeDataBtn.addEventListener("click", async () => {
+        if (confirm("WARNING: This will permanently delete all your saved timetables, attendance records, and selections. You will start completely fresh. Proceed?")) {
+            showLoading("Wiping your data...");
+            try {
+                const fallbackName = state.currentUser.email.split('@')[0];
+                await setDoc(doc(db, "users", state.currentUser.uid), { email: state.currentUser.email, name: state.currentUser.displayName || fallbackName, programTrack: state.userTrack, lastLogin: Date.now() }); 
+                localStorage.removeItem(`userCache_${state.currentUser.uid}`);
+                state.profiles = {}; state.currentProfile = null; state.selected.clear(); state.attendance = {}; state.generatedRows = null; clearUnsaved();
+                updateProfileDropdown(); render(); switchTab('Selection'); els.userDropdown.classList.remove("show"); hideLoading();
+                alert("Your data has been successfully deleted. You have a fresh slate.");
+            } catch (e) { hideLoading(); alert("Failed to delete data: " + e.message); }
+        } else { els.userDropdown.classList.remove("show"); }
+    });
+
+    els.logoutBtn.addEventListener("click", () => signOut(auth));
+
+    els.saveAttBtn.addEventListener("click", async () => {
+        if (!state.currentProfile) return; showLoading("Saving attendance..."); await syncActiveProfile(); clearUnsaved(); els.status.textContent = "Attendance saved successfully."; hideLoading();
+    });
+
+    els.searchTriggerBtn.addEventListener("click", () => {
+        state.search = els.courseSearch.value;
+        renderCourseList(Boolean(state.currentProfile));
+    });
+
+    els.toggleSelectedBtn.addEventListener("click", () => {
+        state.showSelectedOnly = !state.showSelectedOnly;
+        els.toggleSelectedBtn.classList.toggle("active", state.showSelectedOnly);
+        renderCourseList(Boolean(state.currentProfile));
+    });
+
+    // --- LIVE GOOGLE SHEET SYNC LOGIC ---
+    els.syncSheetBtn.addEventListener("click", async () => {
+        showLoading(`Checking configured URL for ${state.userTrack}...`);
+        
+        let sheetId = null;
+        try {
+            const docSnap = await getDoc(doc(db, "settings", "masterSheets"));
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                sheetId = state.userTrack === "PGP" ? data.pgpSheetId : data.hrmSheetId;
+            }
+        } catch (e) { console.error("Failed to read settings", e); }
+
+        if (!sheetId) {
+            hideLoading();
+            alert(`Admin: No Google Sheet configured for ${state.userTrack}. Please open the Admin Panel and save the Sheet URL first.`);
+            return;
+        }
+
+        showLoading(`Connecting to Google Drive to fetch ${state.userTrack}...`);
+        
+        try {
+            const driveProvider = new GoogleAuthProvider(); 
+            driveProvider.addScope('https://www.googleapis.com/auth/drive.readonly');
+            
+            const authResult = await signInWithPopup(auth, driveProvider); 
+            const token = GoogleAuthProvider.credentialFromResult(authResult).accessToken;
+
+            showLoading(`Downloading and parsing live data...`);
+            
+            const exportUrl = `https://www.googleapis.com/drive/v3/files/${sheetId}/export?mimeType=application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`;
+            
+            const response = await fetch(exportUrl, {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+
+            if (!response.ok) throw new Error("Permission Denied. Make sure your admin email has access to this Google Sheet.");
+
+            const arrayBuffer = await response.arrayBuffer();
+            const bytes = new Uint8Array(arrayBuffer);
+            
+            state.data = await parseWorkbook(bytes); 
+            state.search = ""; 
+            state.generatedRows = null;
+            populateFilters(); 
+            await saveExcelCache(state.data); 
+            
+            await setDoc(doc(db, "settings", "masterSheets"), {
+                [`lastSync_${state.userTrack}`]: Date.now()
+            }, { merge: true });
+            
+            els.status.textContent = `${state.userTrack} Schedule synced from live link!`; 
+            els.mainContent.classList.remove("hidden");
+            
+            if (state.currentProfile && state.selected.size > 0) { 
+                createTimetable(false); switchTab('Timetable'); 
+            } else { 
+                render(); switchTab('Selection'); 
+            } 
+            hideLoading();
+            
+        } catch(error) {
+            hideLoading();
+            console.error(error);
+            alert("Sync Error: " + (error.message || "Failed to fetch sheet. Check console."));
+        }
+    });
+
+    function setupMultiSelectDropdown(btn, menu) {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation(); const isHidden = menu.classList.contains('hidden');
+            document.querySelectorAll('.multi-select-menu').forEach(m => m.classList.add('hidden'));
+            if (isHidden) menu.classList.remove('hidden');
+        });
+    }
+    setupMultiSelectDropdown(els.areaFilterBtn, els.areaFilterMenu); setupMultiSelectDropdown(els.modeFilterBtn, els.modeFilterMenu); setupMultiSelectDropdown(els.creditFilterBtn, els.creditFilterMenu);
+
+    function buildMultiSelect(menuEl, btnEl, items, placeholder) {
+        menuEl.innerHTML = [...items].sort((a,b) => a - b || String(a).localeCompare(String(b))).map(item => `<label class="multi-select-item"><input type="checkbox" value="${escapeHTML(item)}"> ${escapeHTML(item)}</label>`).join('');
+        const inputs = menuEl.querySelectorAll('input');
+        inputs.forEach(input => {
+            input.addEventListener('change', () => {
+                const checked = Array.from(inputs).filter(i => i.checked).map(i => i.value);
+                btnEl.textContent = checked.length > 0 ? checked.join(', ') : placeholder; state.generatedRows = null; renderCourseList(Boolean(state.currentProfile));
+            });
+        });
+    }
+    function getCheckedValues(menuEl) { return Array.from(menuEl.querySelectorAll('input:checked')).map(i => i.value); }
+
+    async function syncActiveProfile() {
+      if (!state.currentUser) return;
+      if (state.currentProfile) { state.profiles[state.currentProfile] = { selected: Array.from(state.selected), attendance: state.attendance }; }
+      const saveData = { profiles: state.profiles, lastProfile: state.currentProfile, lastUpdated: Date.now() };
+      safeSetLocal(`userCache_${state.currentUser.uid}`, JSON.stringify(saveData));
+      try { await setDoc(doc(db, "users", state.currentUser.uid), saveData, { merge: true }); } catch (e) {}
+    }
+
+    function updateProfileDropdown() {
+      const names = Object.keys(state.profiles);
+      if (names.length > 0) {
+          els.profileSelect.classList.remove("hidden"); let optionsHTML = "";
+          if (!state.currentProfile) optionsHTML += `<option value="" disabled selected>-- Unsaved --</option>`;
+          optionsHTML += names.map(name => `<option value="${escapeHTML(name)}" ${name === state.currentProfile ? 'selected' : ''}>${escapeHTML(name)}</option>`).join("");
+          els.profileSelect.innerHTML = optionsHTML;
+      } else { els.profileSelect.classList.add("hidden"); }
+    }
+
+    els.tabSelection.addEventListener("click", () => switchTab('Selection')); els.tabTimetable.addEventListener("click", () => switchTab('Timetable')); els.tabCourses.addEventListener("click", () => switchTab('Courses')); els.tabAttendance.addEventListener("click", () => switchTab('Attendance'));
+    function switchTab(tab) { const tabs = ['Selection', 'Timetable', 'Courses', 'Attendance']; tabs.forEach(t => { els['tab' + t].classList.toggle('active', t === tab); els['view' + t].classList.toggle('active', t === tab); }); }
+
+    function createFlashcardHTML(option, isLocked) {
+        const calculatedClasses = Math.round((Number(option.credit) || 0) * 5);
+        const modeBadge = option.courseMode ? `<span class="mode-badge">${escapeHTML(option.courseMode)}</span>` : "";
+        return `<div class="course flashcard" style="${isLocked ? 'opacity: 0.8; ' : ''}${getAreaColor(option.academicArea)}"><label ${isLocked ? 'style="cursor: default;"' : ''}><input type="checkbox" data-key="${escapeAttr(option.key)}" ${state.selected.has(option.key) ? "checked" : ""} ${isLocked ? "disabled" : ""}><div class="card-content"><span class="card-code">${escapeHTML(option.code)}${modeBadge}</span><span class="card-title">${escapeHTML(option.course)}</span><span class="card-meta">${escapeHTML(option.academicArea || "General")} &bull; ${formatNumber(option.credit)} cr &bull; ${calculatedClasses} classes<br><span style="display:inline-block; margin-top:6px; padding:4px 8px; background:var(--danger-bg); color:var(--danger-ink); border-radius:4px; font-size:11px; font-weight:700;">End Date: ${escapeHTML(option.endDate || 'TBD')}</span></span></div></label><button type="button" class="details-btn" data-key="${escapeAttr(option.key)}">View Details</button></div>`;
+    }
+
+    els.courseList.addEventListener('click', (e) => {
+        const btn = e.target.closest('.details-btn'); if (!btn) return;
+        const key = btn.getAttribute('data-key'); const option = state.data.options.find(o => o.key === key); if (!option) return;
+        els.modalCourseName.textContent = option.course;
+        els.modalDetailsContent.innerHTML = `
+            <p><strong>Course Code</strong><span>${escapeHTML(option.code)}</span></p>
+            <p><strong>Academic Area</strong><span>${escapeHTML(option.academicArea || 'N/A')}</span></p>
+            <p><strong>Course Mode</strong><span>${escapeHTML(option.courseMode || 'N/A')}</span></p>
+            <p><strong>Credits</strong><span>${formatNumber(option.credit)}</span></p>
+            <p><strong>Instructor</strong><span>${escapeHTML(option.instructor || 'TBD')}</span></p>
+            <p><strong>Sister Section Allowed</strong><span>${escapeHTML(option.sisterSection || 'N/A')}</span></p>
+            <p><strong>Pre-requisite/Remarks</strong><span>${option.remarks ? escapeHTML(option.remarks) : 'Not required'}</span></p>
+            <p><strong>Start Date</strong><span>${escapeHTML(option.startDate || 'TBD')}</span></p>
+            <p><strong>End Date</strong><span>${escapeHTML(option.endDate || 'TBD')}</span></p>
+            <p style="flex-direction: column; align-items: flex-start; gap: 8px; border-bottom: none;">
+                <strong>Evaluation Criteria</strong>
+                <span style="text-align: left; background: var(--line); padding: 10px 14px; border-radius: 8px; width: 100%; font-size: 13px; line-height: 1.5; color: var(--ink);">
+                    ${escapeHTML(option.evaluation || 'Criteria not available.').replace(/\n/g, '<br>')}
+                </span>
+            </p>
+        `;
+        els.courseModal.classList.add('show');
+    });
+    els.closeModalBtn.addEventListener('click', () => els.courseModal.classList.remove('show')); els.courseModal.addEventListener('click', (e) => { if (e.target === els.courseModal) els.courseModal.classList.remove('show'); });
+
+    els.attendancePreview.addEventListener('click', function(event) {
+      const clearBtn = event.target.closest('.clear-att-btn');
+      if (clearBtn) {
+          const courseKey = clearBtn.getAttribute('data-key');
+          if (confirm("Are you sure you want to clear all attendance marks for this course?")) {
+              Object.keys(state.attendance).forEach(k => { if (k.startsWith(courseKey + '-')) delete state.attendance[k]; });
+              markUnsaved(); 
+              renderAttendance();
+          } return;
+      }
+      const cell = event.target.closest('.att-cell'); if (!cell) return; 
+      const key = cell.getAttribute('data-key'); const index = cell.getAttribute('data-index'); const attKey = `${key}-${index}`; const current = state.attendance[attKey];
+      if (!current) state.attendance[attKey] = 'P'; else if (current === 'P') state.attendance[attKey] = 'A'; else delete state.attendance[attKey];
+      
+      markUnsaved(); 
+      
+      const scrollDiv = els.attendancePreview.querySelector('div[style*="overflow-x: auto"]'); const savedScrollPosition = scrollDiv ? scrollDiv.scrollLeft : 0;
+      renderAttendance(); 
+      const newScrollDiv = els.attendancePreview.querySelector('div[style*="overflow-x: auto"]'); if (newScrollDiv) newScrollDiv.scrollLeft = savedScrollPosition;
+    });
+
+    els.fileInput.addEventListener("change", event => {
+      const file = event.target.files[0]; if (!file) return; clearError(); showLoading(`Parsing Excel for ${state.userTrack}...`);
+      setTimeout(async () => {
+        try {
+          const bytes = new Uint8Array(await file.arrayBuffer()); state.data = await parseWorkbook(bytes); state.search = ""; state.generatedRows = null;
+          populateFilters(); await saveExcelCache(state.data); els.status.textContent = `${state.userTrack} Schedule updated.`; els.mainContent.classList.remove("hidden");
+          if (state.currentProfile && state.selected.size > 0) createTimetable(); else { render(); switchTab('Selection'); } hideLoading();
+        } catch (error) { hideLoading(); showError(error.message || String(error)); }
+      }, 50);
+    });
+
+    let searchTimeout;
+    els.courseSearch.addEventListener("input", event => { clearTimeout(searchTimeout); searchTimeout = setTimeout(() => { state.search = event.target.value; renderCourseList(Boolean(state.currentProfile)); }, 150); });
+    
+    els.toggleFiltersBtn.addEventListener("click", () => { els.advancedFilters.classList.toggle("hidden"); els.toggleFiltersBtn.classList.toggle("active"); });
+    ["sisterFilter", "startFilter", "endFilter"].forEach(id => { els[id].addEventListener("change", () => { state.generatedRows = null; renderCourseList(Boolean(state.currentProfile)); }); });
+    
+    els.clearFiltersBtn.addEventListener("click", () => { 
+        document.querySelectorAll('.multi-select-menu input').forEach(i => i.checked = false); 
+        els.areaFilterBtn.textContent = "All Areas"; 
+        els.modeFilterBtn.textContent = "All Modes"; 
+        els.creditFilterBtn.textContent = "All Credits"; 
+        els.sisterFilter.value = "All"; 
+        els.startFilter.value = ""; 
+        els.endFilter.value = ""; 
+        state.generatedRows = null; 
+        renderCourseList(Boolean(state.currentProfile)); 
+    });
+
+    els.selectAll.addEventListener("click", () => { if (!state.data) return; state.selected = new Set(filteredOptions().map(o => o.key)); state.generatedRows = null; render(); });
+    els.clearAll.addEventListener("click", () => { state.selected.clear(); state.generatedRows = null; state.showSelectedOnly = false; els.toggleSelectedBtn.classList.remove("active"); render(); });
+    els.createBtn.addEventListener("click", () => { createTimetable(true); });
+    
+    els.saveAsBtn.addEventListener("click", () => { 
+        const name = prompt("Enter a name to save this timetable:", `Timetable ${Object.keys(state.profiles).length + 1}`); 
+        if (name) { 
+            state.profiles[name] = { selected: Array.from(state.selected), attendance: state.attendance }; 
+            state.currentProfile = name; 
+            updateProfileDropdown(); 
+            syncActiveProfile(); 
+            clearUnsaved();
+            els.status.textContent = `Saved as ${name}. Dashboard is now locked.`; 
+            render(); 
+        } 
+    });
+    
+    els.profileSelect.addEventListener("change", (e) => { 
+        if (state.unsavedChanges && !confirm("You have unsaved attendance. Discard changes?")) {
+            e.target.value = state.currentProfile;
+            return;
+        }
+        clearUnsaved();
+        if (!e.target.value) return;  
+        state.currentProfile = e.target.value; 
+        const profile = state.profiles[state.currentProfile] || { selected: [], attendance: {} }; 
+        state.selected = new Set(profile.selected); 
+        state.attendance = profile.attendance || {}; 
+        state.generatedRows = null; 
+        state.showSelectedOnly = false; els.toggleSelectedBtn.classList.remove("active");
+        updateProfileDropdown(); 
+        syncActiveProfile(); 
+        if (state.data && state.selected.size > 0) { 
+            createTimetable(false); switchTab('Timetable'); 
+        } else { 
+            render(); switchTab('Selection'); 
+        } 
+    });
+
+    els.newBtn.addEventListener("click", () => { 
+        if (state.unsavedChanges && !confirm("You have unsaved attendance. Discard changes?")) return;
+        clearUnsaved();
+        state.currentProfile = null; 
+        state.selected.clear(); 
+        state.attendance = {}; 
+        state.generatedRows = null; 
+        
+        state.search = "";
+        els.courseSearch.value = "";
+        document.querySelectorAll('.multi-select-menu input').forEach(i => i.checked = false); 
+        els.areaFilterBtn.textContent = "All Areas"; 
+        els.modeFilterBtn.textContent = "All Modes"; 
+        els.creditFilterBtn.textContent = "All Credits"; 
+        els.sisterFilter.value = "All"; 
+        els.startFilter.value = ""; 
+        els.endFilter.value = "";
+        state.showSelectedOnly = false; els.toggleSelectedBtn.classList.remove("active");
+
+        updateProfileDropdown(); 
+        els.status.textContent = "Select courses to build a new timetable."; 
+        render(); 
+        switchTab('Selection'); 
+    });
+
+    els.deleteBtn.addEventListener("click", () => { 
+        if (!state.currentProfile) return; 
+        if (!confirm(`Are you sure you want to delete ${state.currentProfile}?`)) return; 
+        clearUnsaved();
+        
+        delete state.profiles[state.currentProfile]; 
+        const remaining = Object.keys(state.profiles); 
+        state.showSelectedOnly = false; els.toggleSelectedBtn.classList.remove("active");
+        
+        if (remaining.length > 0) { 
+            state.currentProfile = remaining[0]; 
+            const active = state.profiles[state.currentProfile]; 
+            state.selected = new Set(active.selected || []); 
+            state.attendance = active.attendance || {}; 
+            state.generatedRows = null; 
+            updateProfileDropdown(); 
+            syncActiveProfile(); 
+            createTimetable(false); 
+            switchTab('Timetable'); 
+        } else { 
+            state.currentProfile = null; 
+            state.selected.clear(); 
+            state.attendance = {}; 
+            state.generatedRows = null; 
+
+            state.search = "";
+            els.courseSearch.value = "";
+            document.querySelectorAll('.multi-select-menu input').forEach(i => i.checked = false); 
+            els.areaFilterBtn.textContent = "All Areas"; 
+            els.modeFilterBtn.textContent = "All Modes"; 
+            els.creditFilterBtn.textContent = "All Credits"; 
+            els.sisterFilter.value = "All"; 
+            els.startFilter.value = ""; 
+            els.endFilter.value = "";
+
+            updateProfileDropdown(); 
+            syncActiveProfile(); 
+            els.status.textContent = "All timetables deleted. Create a new one."; 
+            render(); 
+            switchTab('Selection'); 
+        } 
+    });
+    
+    els.exportBtn.addEventListener("click", exportToGoogleSheets);
+
+    function render() {
+      const hasData = Boolean(state.data); const hasGeneratedRows = Array.isArray(state.generatedRows) && state.generatedRows.length > 0; const isLocked = Boolean(state.currentProfile);
+      
+      els.selectAll.classList.toggle("hidden", !hasData || isLocked); 
+      els.clearAll.classList.toggle("hidden", !hasData || isLocked); 
+      els.createBtn.classList.toggle("hidden", !hasData || isLocked);
+      els.saveAsBtn.classList.toggle("hidden", !hasGeneratedRows || isLocked); 
+      
+      els.newBtn.classList.remove("hidden");
+      els.deleteBtn.classList.toggle("hidden", !isLocked); 
+      els.exportBtn.classList.toggle("hidden", !hasGeneratedRows);
+      
+      els.selectAll.disabled = !hasData; els.clearAll.disabled = !hasData; els.createBtn.disabled = !hasData || state.selected.size === 0; els.exportBtn.disabled = !hasGeneratedRows;
+      
+      renderCourseList(isLocked); renderPreview(); renderCourseDetails(); renderAttendance(); 
+    }
+
+    function populateFilters() {
+      if (!state.data) return; const modes = new Set(); const credits = new Set(); const areas = new Set();
+      state.data.options.forEach(opt => { if (opt.courseMode) modes.add(opt.courseMode.trim()); if (opt.credit !== undefined) credits.add(opt.credit); if (opt.academicArea) areas.add(opt.academicArea.trim()); });
+      buildMultiSelect(els.areaFilterMenu, els.areaFilterBtn, areas, "All Areas"); buildMultiSelect(els.modeFilterMenu, els.modeFilterBtn, modes, "All Modes"); buildMultiSelect(els.creditFilterMenu, els.creditFilterBtn, credits, "All Credits");
+    }
+
+    function getAreaColor(area) {
+        const a = String(area || "").toLowerCase();
+        if (a.includes('f & a') || a.includes('financ')) return 'border-left: 4px solid #3b82f6;'; 
+        if (a.includes('market')) return 'border-left: 4px solid #f97316;'; 
+        if (a.includes('om & qt') || a.includes('operation')) return 'border-left: 4px solid #22c55e;'; 
+        if (a.includes('is') || a.includes('analytic') || a.includes('information')) return 'border-left: 4px solid #ef4444;'; 
+        if (a.includes('ob & hr') || a.includes('hr')) return 'border-left: 4px solid #a855f7;'; 
+        if (a.includes('strategy')) return 'border-left: 4px solid #14b8a6;'; 
+        if (a.includes('economic')) return 'border-left: 4px solid #eab308;'; 
+        if (a.includes('communication')) return 'border-left: 4px solid #ec4899;'; 
+        if (a.includes('humaniti')) return 'border-left: 4px solid #6366f1;'; 
+        let hash = 0; for (let i = 0; i < a.length; i++) hash = a.charCodeAt(i) + ((hash << 5) - hash);
+        const hue = Math.abs(hash) % 360; return `border-left: 4px solid hsl(${hue}, 70%, 50%);`;
+    }
+
+    function parseDateSafe(dStr) {
+        if (!dStr) return null; if (dStr.match(/^\d{4}-\d{2}-\d{2}$/)) { const [y, m, d] = dStr.split('-'); return new Date(y, m - 1, d).getTime(); }
+        const months = {Jan:0, Feb:1, Mar:2, Apr:3, May:4, Jun:5, Jul:6, Aug:7, Sep:8, Oct:9, Nov:10, Dec:11};
+        const match = dStr.match(/(?:[A-Za-z]{3},\s*)?(\d{1,2})-([A-Za-z]{3})-(\d{4})/); if (match) return new Date(match[3], months[match[2]], match[1]).getTime(); return new Date(dStr).getTime();
+    }
+
+    function renderCourseList(isLocked) {
+      if (!state.data) { 
+          ['courseSearch', 'searchTriggerBtn', 'toggleSelectedBtn', 'sisterFilter', 'startFilter', 'endFilter', 'toggleFiltersBtn', 'clearFiltersBtn'].forEach(id => els[id].disabled = true);
+          els.areaFilterBtn.disabled = true; els.modeFilterBtn.disabled = true; els.creditFilterBtn.disabled = true;
+          els.courseList.innerHTML = `<div class="empty" style="grid-column: 1 / -1;"><div><strong>No Master Schedule Loaded</strong><br>Please wait for the admin to upload the data.</div></div>`; 
+          els.courseCount.textContent = "No workbook loaded"; 
+          return; 
+      }
+      
+      ['courseSearch', 'searchTriggerBtn', 'sisterFilter', 'startFilter', 'endFilter', 'clearFiltersBtn'].forEach(id => els[id].disabled = isLocked);
+      els.areaFilterBtn.disabled = isLocked; els.modeFilterBtn.disabled = isLocked; els.creditFilterBtn.disabled = isLocked; els.toggleFiltersBtn.disabled = false;
+      els.toggleSelectedBtn.disabled = isLocked;
+      
+      if (isLocked) {
+          const options = selectedOptions(); const credits = options.reduce((sum, option) => sum + (Number(option.credit) || 0), 0);
+          els.courseCount.textContent = `Locked: ${options.length} courses • ${formatNumber(credits)} credits`;
+          els.toggleSelectedBtn.textContent = `Show Selected (${options.length})`;
+          
+          if (!options.length) {
+              els.courseList.innerHTML = `<div class="empty" style="grid-column: 1 / -1;"><div><strong>No courses found in this profile</strong><br>Click 'Delete Profile' in the top menu to remove this empty timetable.</div></div>`;
+              return;
+          }
+          
+          els.courseList.innerHTML = options.map(opt => createFlashcardHTML(opt, true)).join("");
+      } else {
+          if (els.courseSearch.value !== state.search) els.courseSearch.value = state.search;
+          const credits = selectedOptions().reduce((sum, option) => sum + (Number(option.credit) || 0), 0); 
+          const visibleOptions = filteredOptions();
+          
+          els.courseCount.textContent = `${state.selected.size} selected • ${formatNumber(credits)} credits`;
+          els.toggleSelectedBtn.textContent = state.showSelectedOnly ? "Show All Courses" : `Show Selected (${state.selected.size})`;
+          
+          if (!visibleOptions.length) { 
+              els.courseList.innerHTML = `<div class="empty" style="grid-column: 1 / -1;"><div><strong>No matching courses</strong><br>Check your search and filters.</div></div>`; 
+              return; 
+          }
+          
+          els.courseList.innerHTML = visibleOptions.map(opt => createFlashcardHTML(opt, false)).join("");
+          els.courseList.querySelectorAll("input[type='checkbox']").forEach(input => { 
+              input.addEventListener("change", () => { 
+                  if (input.checked) state.selected.add(input.dataset.key); 
+                  else state.selected.delete(input.dataset.key); 
+                  state.generatedRows = null; 
+                  render(); 
+              }); 
+          });
+      }
+    }
+
+    function selectedOptions() { return state.data ? state.data.options.filter(option => state.selected.has(option.key)) : []; }
+    
+    function filteredOptions() {
+      if (!state.data) return []; const query = state.search.trim().toLowerCase(); 
+      const selectedAreas = getCheckedValues(els.areaFilterMenu); const selectedModes = getCheckedValues(els.modeFilterMenu); const selectedCredits = getCheckedValues(els.creditFilterMenu);
+      const selectedSister = els.sisterFilter.value; const startT = parseDateSafe(els.startFilter.value); const endT = parseDateSafe(els.endFilter.value);
+      
+      let options = state.data.options.filter(opt => {
+          if (state.showSelectedOnly && !state.selected.has(opt.key)) return false;
+          
+          if (selectedAreas.length > 0 && !selectedAreas.includes(opt.academicArea)) return false; if (selectedModes.length > 0 && !selectedModes.includes(opt.courseMode)) return false; if (selectedCredits.length > 0 && !selectedCredits.includes(String(opt.credit))) return false;
+          if (selectedSister !== "All") { const sis = String(opt.sisterSection || "").trim().toLowerCase(); const hasSister = sis && sis !== "no" && sis !== "none" && sis !== "na" && sis !== "n/a" && sis !== "-"; if (selectedSister === "Yes" && !hasSister) return false; if (selectedSister === "No" && hasSister) return false; }
+          if (startT || endT) { const optStart = parseDateSafe(opt.startDate); const optEnd = parseDateSafe(opt.endDate); if (startT && optStart && optStart < startT) return false; if (endT && optEnd && optEnd > endT) return false; } return true;
+      });
+      if (!query) return options; const terms = query.split(/[\s,;]+/).map(term => term.trim().toLowerCase()).filter(Boolean); const availableCodes = new Set(options.map(option => String(option.code || "").toLowerCase()));
+      const matchedTerms = terms.filter(term => availableCodes.has(term)); const codeTerms = matchedTerms.length ? new Set(matchedTerms) : new Set();
+      if (codeTerms.size > 0) return options.filter(option => codeTerms.has(String(option.code || "").toLowerCase()));
+      return options.filter(option => [option.course, option.code, option.academicArea, option.instructor, option.remarks].some(value => String(value || "").toLowerCase().includes(query)));
+    }
+
+    function selectedRows() {
+      if (!state.data) return []; const byDate = new Map();
+      for (const sourceRow of state.data.rows) {
+        if (!byDate.has(sourceRow.date)) byDate.set(sourceRow.date, { date: sourceRow.date, slots: {} });
+        const target = byDate.get(sourceRow.date);
+        for (const time of state.data.times) { const sessions = (sourceRow.slots[time] || []).filter(session => state.selected.has(session.key)); if (sessions.length) { target.slots[time] ||= []; target.slots[time].push(...sessions); } }
+      }
+      return [...byDate.values()].filter(row => Object.keys(row.slots).length);
+    }
+
+    function createTimetable(autoSwitch = false) {
+      if (state.search.trim() && !state.currentProfile) { const visibleOptions = filteredOptions(); if (visibleOptions.length) state.selected = new Set(visibleOptions.map(option => option.key)); }
+      state.generatedRows = selectedRows(); render();
+      if (state.generatedRows.length) els.status.textContent = `Viewing timetable for ${state.selected.size} courses.`; if (autoSwitch) switchTab('Timetable');
+    }
+
+    function renderPreview() {
+      if (!state.data || !state.generatedRows) { els.rowCount.textContent = "Ready to create"; els.preview.className = "empty"; els.preview.innerHTML = "<div><strong>Choose your courses</strong><br>Select courses from the Course Selection tab and click Create Timetable.</div>"; return; }
+      const rows = state.generatedRows; let totalUniqueClasses = 0;
+      const rowCells = rows.map(row => {
+          const uniqueCodes = new Set(); state.data.times.forEach(time => { (row.slots[time] || []).forEach(session => uniqueCodes.add(session.code)); }); const dailyClassCount = uniqueCodes.size; totalUniqueClasses += dailyClassCount;
+          const timeCells = state.data.times.map(time => { const sessions = row.slots[time] || []; const content = sessions.length ? renderSessions(sessions) : "&nbsp;"; return `<div class="grid-cell${sessions.length > 1 ? " clash" : ""}">${content}</div>`; }).join("");
+          return `<div class="grid-cell date">${escapeHTML(row.date || "Date")}</div><div class="grid-cell count-cell" style="font-weight: 600; font-size: 13px; color: var(--accent);">${dailyClassCount}</div>${timeCells}`;
+      }).join("");
+
+      els.rowCount.textContent = `${rows.length} dates, ${totalUniqueClasses} unique classes`;
+      if (!rows.length) { els.preview.className = "empty"; els.preview.innerHTML = "<div><strong>No classes found</strong></div>"; return; }
+      els.preview.className = "table-wrap"; 
+      const columns = `var(--col-date) var(--col-count) repeat(${state.data.times.length}, var(--col-time))`;
+      const headerCells = `<div class="grid-cell header date">Date</div><div class="grid-cell header count" style="font-size: 12px; z-index: 10;">Classes</div>` + state.data.times.map(time => `<div class="grid-cell header">${escapeHTML(time || "Time")}</div>`).join("");
+      els.preview.innerHTML = `<div class="timetable-grid" style="grid-template-columns: ${columns}">${headerCells}${rowCells}</div>`;
+    }
+function renderCourseDetails() {
+      if (!state.data || !state.generatedRows) { els.courseDetailsCount.textContent = "Ready to create"; els.coursesPreview.className = "empty"; els.coursesPreview.innerHTML = "<div><strong>Create your timetable</strong></div>"; return; }
+      const options = selectedOptions(); els.courseDetailsCount.textContent = `${options.length} selected courses`;
+      if (!options.length) { els.coursesPreview.className = "empty"; els.coursesPreview.innerHTML = "<div><strong>No courses selected</strong></div>"; return; }
+      els.coursesPreview.className = "table-wrap";
+      
+      const rowsHTML = options.map(opt => `<tr>
+          <td>${escapeHTML(opt.sn)}</td>
+          <td>${escapeHTML(opt.academicArea)}</td>
+          <td>${escapeHTML(opt.courseMode)}</td>
+          <td>${escapeHTML(opt.code)}</td>
+          <td>${escapeHTML(opt.course)}</td>
+          <td>${formatNumber(opt.credit)}</td>
+          <td>${escapeHTML(opt.sections)}</td>
+          <td>${escapeHTML(opt.sisterSection)}</td>
+          <td>${escapeHTML(opt.instructor)}</td>
+          <td>${escapeHTML(opt.startDate)}</td>
+          <td>${escapeHTML(opt.endDate)}</td>
+          <td style="line-height: 1.5;">${escapeHTML(opt.evaluation || 'TBD').replace(/\n/g, '<br>')}</td>
+      </tr>`).join("");
+      
+      els.coursesPreview.innerHTML = `<table class="details-table">
+          <thead>
+              <tr>
+                  <th>SN</th>
+                  <th>Academic Area</th>
+                  <th>Course mode</th>
+                  <th>Course Code</th>
+                  <th>Course Name</th>
+                  <th>Credits</th>
+                  <th>Sections</th>
+                  <th>Sister Section</th>
+                  <th>Instructor(s)</th>
+                  <th>Start Date</th>
+                  <th>End Date</th>
+                  <th style="min-width: 200px;">Evaluation Criteria</th>
+              </tr>
+          </thead>
+          <tbody>${rowsHTML}</tbody>
+      </table>`;
+    }
+    function renderAttendance() {
+      if (!state.data || !state.generatedRows) { els.attendanceCount.textContent = "Ready to create"; els.attendancePreview.className = "empty"; els.attendancePreview.innerHTML = "<div><strong>Create your timetable</strong></div>"; return; }
+      const options = selectedOptions(); els.attendanceCount.textContent = `Tracking ${options.length} courses`;
+      if (!options.length) { els.attendancePreview.className = "empty"; els.attendancePreview.innerHTML = "<div><strong>No courses selected</strong></div>"; return; }
+      els.attendancePreview.className = "table-wrap";
+      const schedules = new Map(); const assignedSection = new Map(); options.forEach(opt => schedules.set(opt.key, []));
+      state.generatedRows.forEach(row => { state.data.times.forEach(time => { const sessions = row.slots[time] || []; sessions.forEach(session => { if (schedules.has(session.key)) { const sec = session.sectionLabel || ""; if (!assignedSection.has(session.key)) assignedSection.set(session.key, sec); if (sec === assignedSection.get(session.key)) schedules.get(session.key).push({ date: row.date, time: time }); } }); }); });
+      let maxClasses = 0; options.forEach(opt => { const expected = Math.round((Number(opt.credit) || 0) * 5); if (expected > maxClasses) maxClasses = expected; });
+      
+      let thead = `<tr><th>Course Code</th><th style="text-align:center;">Leaves Allowed</th><th style="text-align:center;">Present / Total</th><th style="text-align:center;">Reset</th>`;
+      for (let i = 0; i < maxClasses; i++) { thead += `<th style="text-align:center;">Class ${i + 1}</th>`; } thead += `</tr>`;
+      
+      let tbody = options.map(opt => {
+        const expectedClasses = Math.round((Number(opt.credit) || 0) * 5); const schedule = schedules.get(opt.key).slice(0, expectedClasses);
+        const leavesAllowed = formatNumber(opt.credit); let presentCount = 0; let classCells = "";
+        for (let i = 0; i < maxClasses; i++) {
+          if (i < expectedClasses) {
+            const session = schedule[i]; const attKey = `${opt.key}-${i}`; const status = state.attendance[attKey]; if (status === 'P') presentCount++;
+            let cellClass = ''; let label = 'Mark'; let cellStyle = 11; 
+            if (status === 'P') { cellClass = 'att-present'; label = 'Present'; cellStyle = 7; } 
+            else if (status === 'A') { cellClass = 'att-absent'; label = 'Absent'; cellStyle = 8; }
+            let shortDate = 'TBD'; if (session) { const parts = session.date.split('-'); shortDate = parts.length === 3 ? `${parts[0]}-${parts[1]}` : session.date.replace(/ \d{4}$/, ''); }
+            classCells += `<td class="att-cell ${cellClass}" data-key="${escapeAttr(opt.key)}" data-index="${i}"><span class="att-date">${escapeHTML(shortDate)}</span><span class="att-status">${label}</span></td>`;
+          } else { classCells += `<td style="background: var(--panel)"></td>`; }
+        }
+        return `<tr><td><strong>${escapeHTML(opt.code)}</strong></td><td style="text-align: center; font-weight: 600;">${leavesAllowed}</td><td style="text-align: center; font-weight: 600;">${presentCount} / ${expectedClasses}</td><td style="text-align: center;"><button class="danger clear-att-btn" data-key="${escapeAttr(opt.key)}" style="padding: 4px 8px; font-size: 10px; border-radius: 6px; line-height: 1.2;">Clear</button></td>${classCells}</tr>`;
+      }).join("");
+      els.attendancePreview.innerHTML = `<div style="overflow-x: auto;"><table class="details-table" style="table-layout: auto;"><thead>${thead}</thead><tbody>${tbody}</tbody></table></div>`;
+    }
+
+    function renderSessions(sessions) { return sessions.map(session => `<div class="session"><strong>${escapeHTML(session.code)}${session.sectionLabel ? ` ${escapeHTML(session.sectionLabel)}` : ""}${session.classNumber ? ` ${session.classNumber}` : ""}</strong><br><span class="small">${escapeHTML(session.room || "")}</span></div>`).join(""); }
+
+    async function parseWorkbook(bytes) {
+      const zip = await readZip(bytes); const workbook = parseXML(await zip.text("xl/workbook.xml")); const rels = parseXML(await zip.text("xl/_rels/workbook.xml.rels"));
+      const sharedStrings = zip.has("xl/sharedStrings.xml") ? parseSharedStrings(parseXML(await zip.text("xl/sharedStrings.xml"))) : [];
+      const sheets = await loadSheets(zip, workbook, rels, sharedStrings); 
+      const courseCatalog = parseCourseCatalog(sheets); const evaluations = parseEvaluations(sheets);
+      const timetableSheet = findTimetableSheet(sheets); if (!timetableSheet) throw new Error("No timetable sheet was found.");
+      return parseTimetable(timetableSheet, courseCatalog, evaluations);
+    }
+
+    async function loadSheets(zip, workbook, rels, sharedStrings) {
+      const relById = new Map(all(rels, "Relationship").map(rel => [rel.getAttribute("Id"), rel.getAttribute("Target")])); const sheets = [];
+      for (const sheet of all(workbook, "sheet")) {
+        const name = sheet.getAttribute("name") || "Sheet"; const target = relById.get(sheet.getAttribute("r:id") || sheet.getAttribute("id"));
+        if (!target) continue; const sheetPath = "xl/" + target.replace(/^\/?xl\//, ""); if (!zip.has(sheetPath)) continue;
+        sheets.push({ name, rows: parseSheet(parseXML(await zip.text(sheetPath)), sharedStrings) });
+      } return sheets;
+    }
+
+    function parseCourseCatalog(sheets) {
+      const catalog = new Map();
+      for (const sheet of sheets) {
+        for (let rowIndex = 0; rowIndex < sheet.rows.length; rowIndex++) {
+          const row = sheet.rows[rowIndex].map(cleanText);
+          const codeCol = row.findIndex(value => /^course code$/i.test(value)); const nameCol = row.findIndex(value => /elective course|course name/i.test(value));
+          if (codeCol < 0 || nameCol < 0) continue;
+          const snCol = row.findIndex(value => /^sn$/i.test(value) || /^s\.?n\.?$/i.test(value)); const areaCol = row.findIndex(value => /academic area/i.test(value));
+          const modeCol = row.findIndex(value => /course mode/i.test(value)); const creditCol = row.findIndex(value => /^credit/i.test(value));
+          const sectionCol = row.findIndex(value => /^section/i.test(value)); const sisterCol = row.findIndex(value => /sister section/i.test(value));
+          const instructorCol = row.findIndex(value => /instructor/i.test(value)); const remarksCol = row.findIndex(value => /pre-requisite|remarks/i.test(value));
+
+          for (const dataRow of sheet.rows.slice(rowIndex + 1)) {
+            const code = normalizeCode(dataRow[codeCol]); const course = cleanText(dataRow[nameCol]); if (!code || !course) continue;
+            catalog.set(code, { code, course, sn: snCol >= 0 ? cleanText(dataRow[snCol]) : "", academicArea: areaCol >= 0 ? cleanText(dataRow[areaCol]) : "", courseMode: modeCol >= 0 ? cleanText(dataRow[modeCol]) : "", credit: Number(dataRow[creditCol]) || 0, sections: Math.max(1, Number(dataRow[sectionCol]) || 1), sisterSection: sisterCol >= 0 ? cleanText(dataRow[sisterCol]) : "", instructor: instructorCol >= 0 ? cleanText(dataRow[instructorCol]) : "", remarks: remarksCol >= 0 ? cleanText(dataRow[remarksCol]) : "" });
+          } return catalog;
+        }
+      } return catalog;
+    }
+function parseEvaluations(sheets) {
+      const evaluations = new Map();
+      for (const sheet of sheets) {
+        // Broader match for sheet name (catches "eval", "evaluations", etc.)
+        if (sheet.name.toLowerCase().includes("eval")) {
+          for (let rowIndex = 0; rowIndex < sheet.rows.length; rowIndex++) {
+            const row = sheet.rows[rowIndex].map(cleanText);
+            
+            // Broader, more flexible match for column headers
+            const codeCol = row.findIndex(value => /course\s*code|^code$/i.test(value)); 
+            const evalCol = row.findIndex(value => /evaluation|criteria/i.test(value));
+            
+            if (codeCol >= 0 && evalCol >= 0) {
+              for (const dataRow of sheet.rows.slice(rowIndex + 1)) {
+                const code = normalizeCode(dataRow[codeCol]); 
+                const evalText = cleanText(dataRow[evalCol]);
+                if (code && evalText) evaluations.set(code, evalText);
+              } 
+              return evaluations;
+            }
+          }
+        }
+      } 
+      return evaluations;
+    }
+
+    function findTimetableSheet(sheets) {
+      const candidates = sheets.map(sheet => ({ sheet, headerIndex: sheet.rows.findIndex(row => row.some(value => /^(day,\s*)?date$/i.test(cleanText(value))) && row.some(value => /am|pm|noon/i.test(cleanText(value)))), preferred: /tt\s*t-?4|term.?iv/i.test(sheet.name) ? 1 : 0 })).filter(c => c.headerIndex >= 0);
+      candidates.sort((a, b) => b.preferred - a.preferred || a.headerIndex - b.headerIndex);
+      return candidates.length ? { ...candidates[0].sheet, headerIndex: candidates[0].headerIndex } : null;
+    }
+
+    function parseTimetable(sheet, catalog, evaluations) {
+      const header = sheet.rows[sheet.headerIndex].map(cleanText);
+      const dateCol = header.findIndex(value => /^(day,\s*)?date$/i.test(value)); const roomCol = header.findIndex(value => /classroom/i.test(value));
+      const timeCols = header.map((value, index) => ({ value, index })).filter(item => /am|pm|noon/i.test(item.value) && !/lunch|break/i.test(item.value));
+      const times = timeCols.map(item => item.value.replace(/\s+/g, " ").trim());
+      if (dateCol < 0 || !times.length) throw new Error("No timetable grid was found.");
+
+      const rows = []; const options = new Map();
+      for (const sourceRow of sheet.rows.slice(sheet.headerIndex + 1)) {
+        const date = normalizeDate(sourceRow[dateCol]); if (!date) continue;
+        const room = roomCol >= 0 ? cleanText(sourceRow[roomCol]) : ""; const slots = {};
+        for (const { value: time, index } of timeCols) {
+          const raw = cleanText(sourceRow[index]); if (!raw) continue;
+          const sessions = parseSessions(raw, catalog, room); if (!sessions.length) continue;
+          slots[time] = sessions;
+          for (const session of sessions) {
+            const existing = options.get(session.key); const meta = catalog.get(session.code) || {};
+            options.set(session.key, { 
+                key: session.key, code: session.code, sn: meta.sn || "", academicArea: meta.academicArea || "", courseMode: meta.courseMode || "", 
+                course: meta.course || session.course, credit: meta.credit || 0, sections: meta.sections || 1, sisterSection: meta.sisterSection || "", 
+                instructor: meta.instructor || "", startDate: existing?.startDate || date, endDate: date, remarks: meta.remarks || "", 
+                evaluation: evaluations.get(session.code) || "TBD", count: (existing?.count || 0) + 1 
+            });
+          }
+        }
+        if (Object.keys(slots).length) rows.push({ date, room, slots });
+      }
+      const sortedOptions = [...options.values()].filter(option => catalog.size === 0 || catalog.has(option.code)).sort((a, b) => (a.academicArea || "").localeCompare(b.academicArea || "") || a.course.localeCompare(b.course));
+      if (!sortedOptions.length) throw new Error("No selectable course sessions were found.");
+      return { sheetName: sheet.name, times, rows, options: sortedOptions };
+    }
+
+    function parseSessions(value, catalog, room) {
+      return value.split(/\n+/).map(part => part.trim()).filter(Boolean).map(raw => {
+        const fullNameMatch = raw.match(/^(.*?)\s*\(Section\s+(.+?)\s+-\s+Class\s+(\d+)\)$/i);
+        if (fullNameMatch) return { raw, code: normalizeCode(fullNameMatch[1]), course: fullNameMatch[1], room, sectionLabel: normalizeSection(fullNameMatch[2]), classNumber: Number(fullNameMatch[3]), key: normalizeCode(fullNameMatch[1]) };
+        const sectionMatch = raw.match(/^(.+?)\s+([A-Z](?:&[A-Z])?)\s+(\d+)$/i); const singleMatch = raw.match(/^(.+?)\s+(\d+)$/i);
+        let code = ""; let sectionLabel = ""; let classNumber = null;
+        if (sectionMatch) { code = normalizeCode(sectionMatch[1]); sectionLabel = normalizeSection(sectionMatch[2]); classNumber = Number(sectionMatch[3]); }
+        else if (singleMatch) { code = normalizeCode(singleMatch[1]); classNumber = Number(singleMatch[2]); } else { code = normalizeCode(raw); }
+        return { raw, code, course: catalog.get(code)?.course || raw, room, sectionLabel, classNumber, key: code };
+      });
+    }
+
+    function cleanText(value) { return String(value ?? "").replace(/\r/g, "").trim(); }
+    function normalizeCode(value) { return cleanText(value).replace(/\s+/g, " ").toUpperCase(); }
+    function normalizeSection(value) { return cleanText(value).replace(/\s+/g, "").toUpperCase(); }
+    function formatNumber(value) { const number = Number(value) || 0; return Number.isInteger(number) ? String(number) : String(number.toFixed(1)).replace(/\.0$/, ""); }
+
+    async function exportToGoogleSheets() {
+      if (!state.data) return;
+      showLoading("Connecting to Google Drive...");
+      try {
+        const driveProvider = new GoogleAuthProvider(); driveProvider.addScope('https://www.googleapis.com/auth/drive.file');
+        const authResult = await signInWithPopup(auth, driveProvider); const token = GoogleAuthProvider.credentialFromResult(authResult).accessToken;
+        showLoading("Generating file..."); const blob = generateXLSXBlob();
+        showLoading("Uploading to your Google Drive...");
+        const metadata = { name: `MBA Timetable - ${state.currentProfile || 'Export'}`, mimeType: 'application/vnd.google-apps.spreadsheet' };
+        const formData = new FormData(); formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' })); formData.append('file', blob);
+        const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token }, body: formData });
+        const result = await response.json();
+        if (result.id) { hideLoading(); els.status.textContent = "Saved securely to Google Drive."; window.open(`https://docs.google.com/spreadsheets/d/${result.id}/edit`, '_blank'); } else { throw new Error("Upload failed. Make sure Google Drive API is enabled in Cloud Console."); }
+      } catch (error) { hideLoading(); console.error("Export Error:", error); alert(`Export failed: ${error.message}\n\nMake sure you have enabled the "Google Drive API" in your Google Cloud Console.`); }
+    }
+
+    function generateXLSXBlob() {
+      const rows = state.generatedRows || []; const options = selectedOptions(); const title = "Term-IV Time Table (PGP 2025-27 batch) for AY 2026-27";
+      const workbookRows = [[{ value: title, style: 3 }, ...state.data.times.map(() => ({ value: "", style: 3 }))], [{ value: "Date", style: 4 }, ...state.data.times.map(t => ({ value: t, style: 4 }))]];
+      for (const row of rows) {
+        workbookRows.push([{ value: row.date, style: 5 }, ...state.data.times.map(time => {
+            const sessions = row.slots[time] || []; if (sessions.length === 0) return { value: "", style: 2 }; 
+            return sessions.length > 1 ? { value: sessions.map(s => `${s.code}${s.sectionLabel ? ` ${s.sectionLabel}` : ""}${s.classNumber ? ` ${s.classNumber}` : ""}\n${s.room || ""}`).join("\n\n"), style: 6 } : { value: `${sessions[0].code}${sessions[0].sectionLabel ? ` ${sessions[0].sectionLabel}` : ""}${sessions[0].classNumber ? ` ${sessions[0].classNumber}` : ""}\n${sessions[0].room || ""}`, style: 2 };
+          })]);
+      }
+      const courseRows = [[{ value: "Selected Courses", style: 3 }, ...Array(10).fill({ value: "", style: 3 })], ["SN", "Academic Area", "Course mode", "Course Code", "Course Name", "Credits", "Sections", "Sister Section", "Instructor(s)", "Start Date", "End Date"].map(h => ({ value: h, style: 4 }))];
+      for (const opt of options) { courseRows.push([{ value: opt.sn, style: 2 }, { value: opt.academicArea, style: 1 }, { value: opt.courseMode, style: 1 }, { value: opt.code, style: 1 }, { value: opt.course, style: 1 }, { value: formatNumber(opt.credit), style: 2 }, { value: String(opt.sections), style: 2 }, { value: opt.sisterSection, style: 1 }, { value: opt.instructor, style: 1 }, { value: opt.startDate, style: 2 }, { value: opt.endDate, style: 2 }]); }
+      let maxClasses = 0; options.forEach(opt => { const expected = Math.round((Number(opt.credit) || 0) * 5); if (expected > maxClasses) maxClasses = expected; });
+      const attendanceRows = [[{ value: "Attendance Tracker", style: 3 }, ...Array(maxClasses + 2).fill({ value: "", style: 3 })]];
+      const attHeaders = ["Course Code", "Leaves Allowed", "Present / Total"]; for (let i = 0; i < maxClasses; i++) attHeaders.push(`Class ${i + 1}`); attendanceRows.push(attHeaders.map(h => ({ value: h, style: 4 })));
+      const schedules = new Map(); const assignedSection = new Map(); options.forEach(opt => schedules.set(opt.key, []));
+      rows.forEach(row => { state.data.times.forEach(time => { (row.slots[time] || []).forEach(session => { if (schedules.has(session.key)) { const sec = session.sectionLabel || ""; if (!assignedSection.has(session.key)) assignedSection.set(session.key, sec); if (sec === assignedSection.get(session.key)) schedules.get(session.key).push({ date: row.date, time: time }); } }); }); });
+      const emptyCell = { value: "", style: 0 };
+      options.forEach(opt => {
+        const expectedClasses = Math.round((Number(opt.credit) || 0) * 5); const schedule = schedules.get(opt.key).slice(0, expectedClasses);
+        let presentCount = 0; const rowData = [{ value: opt.code, style: 1 }, { value: formatNumber(opt.credit), style: 2 }]; const classCells = [];
+        for (let i = 0; i < maxClasses; i++) {
+          if (i < expectedClasses) {
+            const session = schedule[i]; const status = state.attendance[`${opt.key}-${i}`]; if (status === 'P') presentCount++;
+            let label = 'Mark'; let cellStyle = 11; if (status === 'P') { label = 'Present'; cellStyle = 7; } else if (status === 'A') { label = 'Absent'; cellStyle = 8; }
+            classCells.push({ value: `${session ? (session.date.split('-').length === 3 ? `${session.date.split('-')[0]}-${session.date.split('-')[1]}` : session.date.replace(/ \d{4}$/, '')) : 'TBD'}\n${label}`, style: cellStyle });
+          } else classCells.push(emptyCell);
+        }
+        rowData.push({ value: `${presentCount} / ${expectedClasses}`, style: 2 }); attendanceRows.push([...rowData, ...classCells]);
+      });
+      return createXLSX([{ name: "My Timetable", rows: workbookRows, columnWidths: [16, ...state.data.times.map(() => 30)], titleColumns: state.data.times.length + 1 }, { name: "Selected Courses", rows: courseRows, columnWidths: [5, 18, 14, 14, 42, 8, 10, 15, 32, 15, 15], titleColumns: 11 }, { name: "Attendance Tracker", rows: attendanceRows, columnWidths: [14, 15, 15, ...Array(maxClasses).fill(12)], titleColumns: maxClasses + 3 }]);
+    }
+
+    function createXLSX(sheets) {
+      const files = new Map();
+      files.set("[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${sheets.map((_, index) => `<Override PartName="/xl/worksheets/sheet${index + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("\n  ")}</Types>`);
+      files.set("_rels/.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`);
+      files.set("xl/_rels/workbook.xml.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheets.map((_, index) => `<Relationship Id="rId${index + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${index + 1}.xml"/>`).join("\n  ")}<Relationship Id="rId${sheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`);
+      files.set("xl/workbook.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${sheets.map((sheet, index) => `<sheet name="${escapeXML(sheet.name).slice(0, 31)}" sheetId="${index + 1}" r:id="rId${index + 1}"/>`).join("\n    ")}</sheets></workbook>`);
+      files.set("xl/styles.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="5"><font><sz val="9"/><name val="Calibri"/></font><font><b/><sz val="9"/><name val="Calibri"/></font><font><b/><sz val="12"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font><font><b/><sz val="9"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font><font><b/><sz val="10"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font></fonts><fills count="6"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFD9EEF0"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFDE2E2"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1F4E79"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFDCFCE7"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FF000000"/></left><right style="thin"><color rgb="FF000000"/></right><top style="thin"><color rgb="FF000000"/></top><bottom style="thin"><color rgb="FF000000"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="13"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0"><alignment wrapText="1" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="2" fillId="4" borderId="1" xfId="0"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="4" fillId="4" borderId="1" xfId="0"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="1" fillId="3" borderId="1" xfId="0"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="5" borderId="1" xfId="0"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="3" borderId="1" xfId="0"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0"/><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0"/><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="1" borderId="1" xfId="0"><alignment horizontal="center" vertical="center" wrapText="1"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`);
+      sheets.forEach((sheet, index) => { files.set(`xl/worksheets/sheet${index + 1}.xml`, worksheetXML(sheet)); });
+      return new Blob([zipStored(files)], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    }
+
+    function worksheetXML(sheet) {
+      const rowCount = sheet.rows.length; const colCount = Math.max(...sheet.rows.map(r => r.length), 1);
+      const sheetViews = `<sheetViews><sheetView workbookViewId="0" showGridLines="0"/></sheetViews>`;
+      const sheetFormatPr = `<sheetFormatPr defaultColWidth="10" defaultRowHeight="15"/>`;
+      const cols = (sheet.columnWidths || []).length ? `<cols>${(sheet.columnWidths || []).map((width, index) => `<col min="${index + 1}" max="${index + 1}" width="${width}" customWidth="1"/>`).join("")}</cols>` : "";
+      const sheetRows = sheet.rows.map((row, rowIndex) => {
+        let maxLines = 1; row.forEach(cellObj => { const val = (cellObj && cellObj.value !== undefined) ? String(cellObj.value) : ""; const lines = val.split('\n').length; if (lines > maxLines) maxLines = lines; });
+        let rowHeight = 34; if (rowIndex === 0 || rowIndex === 1) rowHeight = 30; else if (maxLines > 1) rowHeight = maxLines * 22; 
+        return `<row r="${rowIndex + 1}" ht="${rowHeight}" customHeight="1">${row.map((cellObj, colIndex) => {
+            const style = (cellObj && cellObj.style !== undefined) ? cellObj.style : 0;
+            return `<c r="${columnName(colIndex)}${rowIndex + 1}" t="inlineStr" s="${style}"><is><t xml:space="preserve">${escapeXML((cellObj && cellObj.value !== undefined) ? cellObj.value : cellObj ?? "")}</t></is></c>`;
+        }).join("")}</row>`;
+      }).join("");
+      const mergeCells = sheet.titleColumns > 1 ? `<mergeCells count="1"><mergeCell ref="A1:${columnName(sheet.titleColumns - 1)}1"/></mergeCells>` : "";
+      return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><dimension ref="A1:${columnName(colCount - 1)}${rowCount}"/>${sheetViews}${sheetFormatPr}${cols}<sheetData>${sheetRows}</sheetData>${mergeCells}<pageMargins left="0.25" right="0.25" top="0.35" bottom="0.35" header="0.2" footer="0.2"/></worksheet>`;
+    }
+    
+    function columnName(index) { let name = ""; let value = index + 1; while (value > 0) { name = String.fromCharCode(65 + (value - 1) % 26) + name; value = Math.floor((value - 1) / 26); } return name; }
+    function zipStored(files) {
+      const encoder = new TextEncoder(); const chunks = []; const central = []; let offset = 0;
+      for (const [name, text] of files) {
+        const nameBytes = encoder.encode(name); const data = encoder.encode(text); const crc = crc32(data);
+        const local = new Uint8Array(30 + nameBytes.length); putU32(local, 0, 0x04034b50); putU16(local, 4, 20); putU16(local, 8, 0); putU32(local, 14, crc); putU32(local, 18, data.length); putU32(local, 22, data.length); putU16(local, 26, nameBytes.length); local.set(nameBytes, 30); chunks.push(local, data);
+        const entry = new Uint8Array(46 + nameBytes.length); putU32(entry, 0, 0x02014b50); putU16(entry, 4, 20); putU16(entry, 6, 20); putU16(entry, 10, 0); putU32(entry, 16, crc); putU32(entry, 20, data.length); putU32(entry, 24, data.length); putU16(entry, 28, nameBytes.length); putU32(entry, 42, offset); entry.set(nameBytes, 46); central.push(entry); offset += local.length + data.length;
+      }
+      const end = new Uint8Array(22); putU32(end, 0, 0x06054b50); putU16(end, 8, files.size); putU16(end, 10, files.size); putU32(end, 12, central.reduce((sum, entry) => sum + entry.length, 0)); putU32(end, 16, offset);
+      return concatBytes([...chunks, ...central, end]);
+    }
+    function crc32(data) { let crc = 0xffffffff; for (const byte of data) crc = CRC_TABLE[(crc ^ byte) & 0xff] ^ (crc >>> 8); return (crc ^ 0xffffffff) >>> 0; }
+    const CRC_TABLE = (() => { const table = new Uint32Array(256); for (let i = 0; i < 256; i++) { let value = i; for (let j = 0; j < 8; j++) value = value & 1 ? 0xedb88320 ^ (value >>> 1) : value >>> 1; table[i] = value >>> 0; } return table; })();
+    function concatBytes(parts) { const out = new Uint8Array(parts.reduce((sum, part) => sum + part.length, 0)); let offset = 0; for (const part of parts) { out.set(part, offset); offset += part.length; } return out; }
+    function putU16(bytes, offset, value) { bytes[offset] = value & 0xff; bytes[offset + 1] = (value >>> 8) & 0xff; }
+    function putU32(bytes, offset, value) { bytes[offset] = value & 0xff; bytes[offset + 1] = (value >>> 8) & 0xff; bytes[offset + 2] = (value >>> 16) & 0xff; bytes[offset + 3] = (value >>> 24) & 0xff; }
+    function escapeXML(value) { return String(value).replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" }[char])); }
+    function parseSharedStrings(doc) { return all(doc, "si").map(si => all(si, "t").map(t => t.textContent).join("")); }
+    function parseSheet(doc, sharedStrings) {
+      const rows = [];
+      for (const rowEl of all(doc, "row")) {
+        const rowIndex = Number(rowEl.getAttribute("r") || rows.length + 1) - 1; rows[rowIndex] ||= [];
+        for (const cell of all(rowEl, "c")) rows[rowIndex][columnIndex(cell.getAttribute("r") || `A${rowIndex + 1}`)] = cellValue(cell, sharedStrings);
+      } return rows;
+    }
+    function cellValue(cell, sharedStrings) { const type = cell.getAttribute("t") || ""; if (type === "inlineStr") return all(cell, "t").map(t => t.textContent).join(""); const value = first(cell, "v")?.textContent || ""; return type === "s" ? sharedStrings[Number(value)] || "" : value; }
+    async function readZip(bytes) {
+      const eocdOffset = findEOCD(bytes); if (eocdOffset < 0) throw new Error("Invalid .xlsx file.");
+      const entries = readU16(bytes, eocdOffset + 10); const files = new Map(); let cursor = readU32(bytes, eocdOffset + 16);
+      for (let i = 0; i < entries; i++) {
+        const method = readU16(bytes, cursor + 10); const compressedSize = readU32(bytes, cursor + 20); const nameLength = readU16(bytes, cursor + 28); const localOffset = readU32(bytes, cursor + 42);
+        files.set(decode(bytes.slice(cursor + 46, cursor + 46 + nameLength)), { method, compressedSize, localOffset, textCache: null }); cursor += 46 + nameLength + readU16(bytes, cursor + 30) + readU16(bytes, cursor + 32);
+      }
+      return { has(name) { return files.has(name); }, async text(name) { const file = files.get(name); if (!file) throw new Error(`Missing: ${name}`); if (file.textCache === null) file.textCache = decode(await unzipEntry(bytes, file)); return file.textCache; } };
+    }
+    async function unzipEntry(bytes, file) {
+      const offset = file.localOffset; const start = offset + 30 + readU16(bytes, offset + 26) + readU16(bytes, offset + 28); const compressed = bytes.slice(start, start + file.compressedSize);
+      if (file.method === 0) return compressed; if (file.method !== 8 || !("DecompressionStream" in window)) throw new Error("Unsupported compression."); return new Uint8Array(await new Response(new Blob([compressed]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).arrayBuffer());
+    }
+    function findEOCD(bytes) { for (let i = bytes.length - 22; i >= Math.max(0, bytes.length - 66000); i--) if (readU32(bytes, i) === 0x06054b50) return i; return -1; }
+    function readU16(bytes, offset) { return bytes[offset] | (bytes[offset + 1] << 8); }
+    function readU32(bytes, offset) { return (bytes[offset] | (bytes[offset + 1] << 8) | (bytes[offset + 2] << 16) | (bytes[offset + 3] << 24)) >>> 0; }
+    function columnIndex(ref) { let value = 0; for (const letter of (ref.match(/[A-Z]+/i) || ["A"])[0].toUpperCase()) value = value * 26 + letter.charCodeAt(0) - 64; return value - 1; }
+    
+    function formatDisplayDate(date) { 
+        const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]; 
+        return `${days[date.getUTCDay()]}, ${String(date.getUTCDate()).padStart(2, '0')}-${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][date.getUTCMonth()]}-${date.getUTCFullYear()}`; 
+    }
+    function normalizeDate(value) {
+      const text = String(value || "").trim(); if (!text) return ""; const numeric = Number(text);
+      if (Number.isFinite(numeric) && numeric > 20000) { const base = new Date(Date.UTC(1899, 11, 30)); base.setUTCDate(base.getUTCDate() + numeric); return formatDisplayDate(base); }
+      const isoMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})/); return isoMatch ? formatDisplayDate(new Date(Date.UTC(Number(isoMatch[1]), Number(isoMatch[2]) - 1, Number(isoMatch[3])))) : text;
+    }
+    
+    function parseXML(text) { const doc = new DOMParser().parseFromString(text, "application/xml"); if (doc.querySelector("parsererror")) throw new Error("XML parse error."); return doc; }
+    function all(root, localName) { return [...root.getElementsByTagName("*")].filter(node => node.localName === localName); }
+    function first(root, localName) { return all(root, localName)[0] || null; }
+    function decode(bytes) { return new TextDecoder("utf-8").decode(bytes); }
+    function escapeHTML(value) { return String(value).replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char])); }
+    function escapeAttr(value) { return escapeHTML(value); }
+    function showError(message) { els.error.textContent = message; els.error.hidden = false; }
+    function clearError() { els.error.textContent = ""; els.error.hidden = true; }
+
+    const themeToggleBtn = document.getElementById("themeToggle"); const themeMeta = document.getElementById("themeColorMeta"); const currentTheme = localStorage.getItem("theme");
+    if (currentTheme === "dark" || (!currentTheme && window.matchMedia("(prefers-color-scheme: dark)").matches)) { document.documentElement.setAttribute("data-theme", "dark"); themeToggleBtn.textContent = "Light Mode ☀️"; themeMeta.content = "#000000"; } else { themeToggleBtn.textContent = "Dark Mode 🌙"; themeMeta.content = "#ffffff"; }
+    themeToggleBtn.addEventListener("click", () => {
+      if (document.documentElement.getAttribute("data-theme") === "dark") { document.documentElement.removeAttribute("data-theme"); localStorage.setItem("theme", "light"); themeToggleBtn.textContent = "Dark Mode 🌙"; themeMeta.content = "#ffffff"; } 
+      else { document.documentElement.setAttribute("data-theme", "dark"); localStorage.setItem("theme", "dark"); themeToggleBtn.textContent = "Light Mode ☀️"; themeMeta.content = "#000000"; }
+      document.getElementById("userDropdown").classList.remove("show");
+    });
+  </script>
+</body>
+</html>
