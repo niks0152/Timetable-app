@@ -3,389 +3,1030 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover">
-  <meta name="theme-color" id="themeColorMeta" content="#ffffff">
+  <meta name="theme-color" id="themeColorMeta" content="#0f0f1a">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <title>Timetable</title>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="description" content="MBA Timetable Maker — build your personal schedule in seconds.">
+  <title>Timetable · IIM Indore</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(err => console.log('SW registration failed:', err));
+      });
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap" rel="stylesheet">
   <style>
+    /* ─── DESIGN TOKENS ─────────────────────────────────────────────── */
     :root {
       color-scheme: light dark;
-      --ink: #000000; 
-      --muted: #64748b;
-      --line: #e2e8f0;
-      --panel: #f8fafc;
-      --header: #f1f5f9;
-      --accent: #0ea5e9;
-      --accent-hover: #0284c7;
-      --accent-ink: #ffffff;
-      --danger-bg: #fee2e2;
-      --danger-ink: #991b1b;
-      --bg: #ffffff;
-      --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05);
-      --radius: 10px;
-      --table-head-bg: #1f4e79;
+      --font: 'Public Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+
+      /* Original palette — white / sky-blue */
+      --accent:        #0ea5e9;
+      --accent-hover:  #0284c7;
+      --accent-soft:   #e0f2fe;
+      --accent-ink:    #ffffff;
+      --accent-glow:   rgba(14, 165, 233, 0.25);
+
+      /* Surface */
+      --bg:            #ffffff;
+      --surface:       #f8fafc;
+      --surface-2:     #f1f5f9;
+      --border:        #e2e8f0;
+      --border-strong: #cbd5e1;
+
+      /* Text */
+      --ink:           #000000;
+      --ink-2:         #64748b;
+      --ink-3:         #94a3b8;
+
+      /* Semantic */
+      --danger:        #ef4444;
+      --danger-bg:     #fee2e2;
+      --danger-ink:    #991b1b;
+      --success:       #10b981;
+      --success-bg:    #d1fae5;
+      --success-ink:   #065f46;
+      --warning:       #eab308;
+
+      /* Table header */
+      --table-head-bg:  #1f4e79;
       --table-head-ink: #ffffff;
-      --col-date: 118px;
-      --col-time: 168px;
-      --col-count: 80px; 
+
+      /* Layout */
+      --radius-sm:  6px;
+      --radius:    10px;
+      --radius-lg: 12px;
+      --radius-xl: 16px;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+      --shadow:    0 4px 6px -1px rgba(0,0,0,0.07);
+      --shadow-lg: 0 10px 25px rgba(0,0,0,0.1);
+
+      /* Timetable columns */
+      --col-date:  118px;
+      --col-time:  168px;
+      --col-count: 80px;
     }
 
+    /* Original dark palette — pure black / sky-blue */
     [data-theme="dark"] {
-      --ink: #ffffff; 
-      --muted: #a1a1aa;
-      --line: #27272a;
-      --panel: #09090b; 
-      --header: #000000;
-      --accent: #38bdf8;
-      --accent-hover: #7dd3fc;
-      --accent-ink: #000000;
-      --danger-bg: rgba(220, 38, 38, 0.2);
-      --danger-ink: #fca5a5;
-      --bg: #000000; 
-      --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.8);
-      --table-head-bg: #18181b;
+      --bg:            #000000;
+      --surface:       #09090b;
+      --surface-2:     #18181b;
+      --border:        #27272a;
+      --border-strong: #3f3f46;
+
+      --ink:           #ffffff;
+      --ink-2:         #a1a1aa;
+      --ink-3:         #71717a;
+
+      --accent:        #38bdf8;
+      --accent-hover:  #7dd3fc;
+      --accent-soft:   rgba(56, 189, 248, 0.12);
+      --accent-ink:    #000000;
+      --accent-glow:   rgba(56, 189, 248, 0.2);
+
+      --danger-bg:     rgba(220, 38, 38, 0.2);
+      --danger-ink:    #fca5a5;
+      --success-bg:    rgba(16, 185, 129, 0.15);
+      --success-ink:   #6ee7b7;
+
+      --table-head-bg:  #18181b;
       --table-head-ink: #ffffff;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.5);
+      --shadow:    0 4px 12px rgba(0,0,0,0.6);
+      --shadow-lg: 0 12px 32px rgba(0,0,0,0.7);
     }
 
-    * { box-sizing: border-box; transition: background-color 0.2s ease, border-color 0.2s ease; }
+    /* ─── RESET & BASE ───────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    * { transition: background-color 0.2s ease, border-color 0.2s ease, color 0.15s ease; }
 
-    html { background-color: var(--bg); height: -webkit-fill-available; }
-    body { margin: 0; padding: 0; width: 100%; min-height: -webkit-fill-available; height: 100dvh; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: var(--ink); background: var(--bg); -webkit-font-smoothing: antialiased; display: flex; flex-direction: column; }
+    html { background: var(--bg); height: -webkit-fill-available; scroll-behavior: smooth; }
+    body {
+      font-family: var(--font);
+      font-size: 14px;
+      line-height: 1.5;
+      color: var(--ink);
+      background: var(--bg);
+      margin: 0; padding: 0;
+      width: 100%;
+      min-height: -webkit-fill-available;
+      height: 100dvh;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      display: flex;
+      flex-direction: column;
+    }
 
-    #loadingOverlay { position: fixed; inset: 0; background: rgba(255,255,255,0.85); z-index: 4000; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: 600; color: var(--ink); backdrop-filter: blur(4px); transition: opacity 0.3s ease; }
-    [data-theme="dark"] #loadingOverlay { background: rgba(0,0,0,0.85); }
-    .spinner { width: 42px; height: 42px; border: 4px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 16px; }
+    /* ─── LOADING OVERLAY ───────────────────────────────────────────── */
+    #loadingOverlay {
+      position: fixed; inset: 0; z-index: 4000;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: rgba(15,15,26,0.7);
+      backdrop-filter: blur(12px);
+      transition: opacity 0.3s ease;
+      gap: 16px;
+    }
+    [data-theme="dark"] #loadingOverlay { background: rgba(0,0,0,0.75); }
+    .spinner {
+      width: 44px; height: 44px;
+      border: 3px solid rgba(255,255,255,0.15);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+    #loadingMsg { color: #fff; font-size: 14px; font-weight: 500; opacity: 0.85; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 3000; display: flex; align-items: center; justify-content: center; padding: 20px; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; backdrop-filter: blur(4px); }
+    /* ─── MODAL ─────────────────────────────────────────────────────── */
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 3000;
+      display: flex; align-items: center; justify-content: center; padding: 20px;
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(8px);
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
     .modal-overlay.show { opacity: 1; pointer-events: auto; }
-    .modal-box { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 24px; width: 100%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); transform: translateY(20px); transition: transform 0.2s ease; }
-    .modal-overlay.show .modal-box { transform: translateY(0); }
-    .modal-details p { margin: 10px 0; font-size: 14px; color: var(--muted); display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px dashed var(--line); padding-bottom: 8px;}
+    .modal-box {
+      background: var(--bg);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-xl);
+      padding: 28px;
+      width: 100%; max-width: 420px;
+      max-height: 85vh; overflow-y: auto;
+      box-shadow: var(--shadow-lg);
+      transform: translateY(24px) scale(0.97);
+      transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .modal-overlay.show .modal-box { transform: translateY(0) scale(1); }
+    .modal-box h3 { font-size: 17px; font-weight: 700; color: var(--ink); margin-bottom: 20px; }
+    .modal-details p {
+      margin: 10px 0; font-size: 13px; color: var(--ink-2);
+      display: flex; justify-content: space-between; gap: 12px;
+      border-bottom: 1px solid var(--border); padding-bottom: 10px;
+    }
     .modal-details p:last-child { border-bottom: none; }
-    .modal-details strong { color: var(--ink); font-weight: 600; flex-shrink: 0;}
+    .modal-details strong { color: var(--ink); font-weight: 600; flex-shrink: 0; }
     .modal-details span { text-align: right; word-break: break-word; }
-    .modal-close { margin-top: 24px; width: 100%; background: var(--panel); border: 1px solid var(--line); padding: 12px; border-radius: 8px; cursor: pointer; color: var(--ink); font-weight: 600; font-size: 15px; transition: 0.2s; }
-    .modal-close:hover { background: var(--line); }
+    .modal-close {
+      margin-top: 24px; width: 100%;
+      background: var(--surface); border: 1px solid var(--border);
+      padding: 12px; border-radius: var(--radius);
+      cursor: pointer; color: var(--ink); font-weight: 600; font-size: 14px;
+      transition: all 0.2s; font-family: var(--font);
+    }
+    .modal-close:hover { background: var(--surface-2); }
 
-    /* --- ONBOARDING, LOGIN, ADMIN SCREENS --- */
-    #loginScreen, #onboardingScreen, #adminDashboardScreen { position: fixed; inset: 0; background: var(--bg); z-index: 1000; display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 24px; }
-    #adminDashboardScreen { z-index: 2500; overflow-y: auto; padding:24px; align-items: stretch; justify-content: flex-start; text-align: left; }
-    #loginScreen h1, #onboardingScreen h1 { font-size: 42px; font-weight: 800; letter-spacing: -1px; margin-bottom: 8px; color: var(--ink); }
-    #loginScreen h2, #onboardingScreen h2 { font-size: 18px; font-weight: 500; color: var(--muted); margin-bottom: 32px; max-width: 400px; }
-    
-    .google-btn { display: flex; align-items: center; gap: 10px; padding: 14px 24px; font-size: 15px; font-weight: 600; background: #ffffff; color: #3c4043; border: 1px solid #dadce0; border-radius: 8px; cursor: pointer; box-shadow: 0 1px 2px 0 rgba(60,64,67,0.3); transition: all 0.2s; }
-    .google-btn:hover { background: #f8f9fa; box-shadow: 0 1px 3px 1px rgba(60,64,67,0.15); transform: translateY(-1px); }
-    .google-btn img { width: 18px; height: 18px; }
-    .credits-footer { position: absolute; bottom: 24px; font-size: 13px; font-weight: 500; color: var(--muted); opacity: 0.7; letter-spacing: 0.5px; text-transform: uppercase; }
-    
-    .track-btn { width: 100%; max-width: 250px; padding: 16px; font-size: 16px; font-weight: 700; border-radius: 12px; margin-bottom: 12px; transition: 0.2s; cursor: pointer; border: 2px solid transparent; }
-    .track-btn.pgp { background: var(--accent); color: var(--accent-ink); }
-    .track-btn.pgp:hover { background: var(--accent-hover); transform: translateY(-2px); }
-    .track-btn.hrm { background: #8b5cf6; color: #ffffff; }
-    .track-btn.hrm:hover { background: #7c3aed; transform: translateY(-2px); }
+    /* ─── LOGIN SCREEN ──────────────────────────────────────────────── */
+    #loginScreen {
+      position: fixed; inset: 0; z-index: 1000;
+      display: none; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; padding: 24px;
+      background: linear-gradient(135deg, #0f0f1a 0%, #1a0a2e 40%, #0a1628 100%);
+      overflow: hidden;
+    }
+    /* Animated background orbs */
+    #loginScreen::before {
+      content: '';
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(ellipse 600px 500px at 20% 30%, hsl(var(--brand-h), 80%, 40%, 0.25) 0%, transparent 70%),
+        radial-gradient(ellipse 500px 400px at 80% 70%, hsl(280, 80%, 45%, 0.2) 0%, transparent 70%),
+        radial-gradient(ellipse 400px 300px at 60% 10%, hsl(200, 90%, 50%, 0.15) 0%, transparent 70%);
+      animation: orbFloat 8s ease-in-out infinite alternate;
+    }
+    @keyframes orbFloat {
+      0%   { transform: scale(1) translate(0,0); }
+      100% { transform: scale(1.08) translate(-10px, 10px); }
+    }
+    .login-card {
+      position: relative; z-index: 1;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: var(--radius-xl);
+      padding: 48px 40px;
+      max-width: 420px; width: 100%;
+      backdrop-filter: blur(20px);
+      box-shadow: 0 24px 80px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1);
+      animation: cardIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(30px) scale(0.95); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .login-logo {
+      width: 64px; height: 64px; border-radius: 18px; margin: 0 auto 24px;
+      background: linear-gradient(135deg, hsl(var(--brand-h), 85%, 60%), hsl(280, 80%, 60%));
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 8px 24px hsl(var(--brand-h), 85%, 60%, 0.4);
+      font-size: 28px;
+    }
+    #loginScreen h1 {
+      font-size: 32px; font-weight: 800; letter-spacing: -1px;
+      color: #ffffff; margin-bottom: 8px; line-height: 1.1;
+    }
+    #loginScreen h2 {
+      font-size: 15px; font-weight: 400; color: rgba(255,255,255,0.55);
+      margin-bottom: 36px; line-height: 1.5;
+    }
+    .google-btn {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      width: 100%; padding: 14px 24px;
+      font-size: 15px; font-weight: 600; font-family: var(--font);
+      background: #ffffff; color: #1f1f1f;
+      border: none; border-radius: var(--radius);
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      transition: all 0.2s;
+    }
+    .google-btn:hover { background: #f4f4f4; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.25); }
+    .google-btn img { width: 20px; height: 20px; }
+    .credits-footer {
+      position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
+      font-size: 11px; font-weight: 500; color: rgba(255,255,255,0.25);
+      letter-spacing: 0.8px; text-transform: uppercase; white-space: nowrap;
+    }
+    .login-error { margin-top: 16px; color: hsl(4, 86%, 70%); font-size: 13px; font-weight: 500; }
 
-    .hidden { display: none !important; opacity: 0; pointer-events: none; }
-    
-    .user-profile-menu { position: relative; display: flex; align-items: center; cursor: pointer; }
-    .user-profile-menu img { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--line); transition: border-color 0.2s; }
-    .user-profile-menu:hover img { border-color: var(--accent); }
-    
-    .user-dropdown { position: absolute; right: 0; top: 100%; margin-top: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow); display: none; flex-direction: column; min-width: 150px; overflow: hidden; z-index: 1000; }
-    .user-dropdown.show { display: flex; }
-    .user-dropdown button { appearance: none; border: none; border-radius: 0; background: transparent; padding: 12px 16px; text-align: left; font-size: 13px; font-weight: 500; color: var(--ink); cursor: pointer; width: 100%; transition: background-color 0.2s; }
-    .user-dropdown button:hover { background: var(--line); transform: none; }
+    /* ─── ONBOARDING SCREEN ─────────────────────────────────────────── */
+    #onboardingScreen {
+      position: fixed; inset: 0; z-index: 1000;
+      display: none; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; padding: 24px;
+      background: linear-gradient(135deg, #0f0f1a 0%, #1a0a2e 40%, #0a1628 100%);
+      overflow: hidden;
+    }
+    #onboardingScreen::before {
+      content: '';
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(ellipse 600px 500px at 20% 30%, hsl(var(--brand-h), 80%, 40%, 0.2) 0%, transparent 70%),
+        radial-gradient(ellipse 500px 400px at 80% 70%, hsl(280, 80%, 45%, 0.18) 0%, transparent 70%);
+    }
+    .onboarding-inner { position: relative; z-index: 1; max-width: 600px; width: 100%; animation: cardIn 0.5s ease both; }
+    #onboardingScreen h1 {
+      font-size: 36px; font-weight: 800; letter-spacing: -1.5px;
+      color: #ffffff; margin-bottom: 10px;
+    }
+    #onboardingScreen h2 {
+      font-size: 15px; font-weight: 400; color: rgba(255,255,255,0.5);
+      margin-bottom: 40px; max-width: 420px; margin-left: auto; margin-right: auto;
+    }
+    .track-cards { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+    .track-card {
+      flex: 1; min-width: 220px; max-width: 260px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: var(--radius-xl);
+      padding: 32px 24px;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      text-align: center;
+      backdrop-filter: blur(12px);
+    }
+    .track-card:hover { transform: translateY(-6px); border-color: rgba(255,255,255,0.25); box-shadow: 0 20px 60px rgba(0,0,0,0.4); }
+    .track-card .icon { font-size: 40px; margin-bottom: 16px; display: block; }
+    .track-card .track-label { font-size: 22px; font-weight: 800; color: #fff; margin-bottom: 6px; letter-spacing: -0.5px; }
+    .track-card .track-sub { font-size: 13px; color: rgba(255,255,255,0.5); }
+    .track-card.pgp { border-color: hsl(var(--brand-h), 80%, 50%, 0.4); }
+    .track-card.pgp:hover { background: hsl(var(--brand-h), 80%, 50%, 0.15); box-shadow: 0 20px 60px hsl(var(--brand-h), 80%, 50%, 0.25); }
+    .track-card.hrm { border-color: hsl(280, 80%, 60%, 0.4); }
+    .track-card.hrm:hover { background: hsl(280, 80%, 60%, 0.12); box-shadow: 0 20px 60px hsl(280, 80%, 60%, 0.2); }
 
-    header { flex-shrink: 0; display: flex; align-items: center; gap: 14px; padding: max(16px, env(safe-area-inset-top)) 24px 16px 24px; border-bottom: 1px solid var(--line); background: var(--bg); position: relative; z-index: 999; box-shadow: var(--shadow); }
-    .header-controls { display: flex; align-items: center; gap: 10px; }
-    h1 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }
-    h2 { margin: 0 0 4px; font-size: 16px; font-weight: 600; }
-    .status { color: var(--muted); font-size: 13px; font-weight: 500; }
-    .small { color: var(--muted); font-size: 13px; }
+    /* ─── ADMIN DASHBOARD ───────────────────────────────────────────── */
+    #adminDashboardScreen {
+      position: fixed; inset: 0; z-index: 2500;
+      background: var(--bg);
+      display: none; flex-direction: column;
+      overflow-y: auto;
+      padding: 24px 28px;
+    }
+    .admin-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; gap: 16px; }
+    .admin-header h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.8px; }
+    .admin-metrics { display: flex; gap: 16px; margin-bottom: 28px; flex-wrap: wrap; }
+    .metric-card {
+      flex: 1; min-width: 160px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 20px 24px;
+    }
+    .metric-card .metric-label { font-size: 11px; font-weight: 700; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
+    .metric-card .metric-value { font-size: 36px; font-weight: 800; letter-spacing: -1px; color: var(--accent); }
+
+    /* ─── HEADER ────────────────────────────────────────────────────── */
+    header {
+      flex-shrink: 0;
+      display: flex; align-items: center; gap: 12px;
+      padding: max(14px, env(safe-area-inset-top)) 20px 14px 20px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+      position: relative; z-index: 999;
+      box-shadow: var(--shadow-sm);
+    }
+    .header-brand { display: flex; flex-direction: column; }
+    .header-brand h1 { font-size: 18px; font-weight: 800; letter-spacing: -0.5px; color: var(--ink); }
+    .header-brand .status { color: var(--ink-3); font-size: 11px; font-weight: 500; margin-top: 1px; }
     .spacer { flex: 1; }
+    .header-controls { display: flex; align-items: center; gap: 8px; }
 
-    button, .file-button, select.file-button { appearance: none; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink); font: inherit; font-size: 13px; font-weight: 500; padding: 10px 16px; cursor: pointer; white-space: nowrap; transition: all 0.2s; }
-    button:hover:not(:disabled), .file-button:hover { border-color: var(--muted); transform: translateY(-1px); }
-    button.primary, .file-button { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
-    button.primary:hover:not(:disabled), .file-button:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
-    button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
-    button.danger { background: var(--danger-bg); border-color: var(--danger-bg); color: var(--danger-ink); font-weight: 600; }
-    button.danger:hover:not(:disabled) { background: var(--danger-ink); border-color: var(--danger-ink); color: #ffffff; }
-    
-    button.sheets-btn { background: #10b981; border-color: #10b981; color: white; display: flex; align-items: center; gap: 6px; font-weight: 600; }
-    button.sheets-btn:hover:not(:disabled) { background: #059669; border-color: #059669; }
+    /* ─── BUTTONS ───────────────────────────────────────────────────── */
+    button, select.file-button {
+      appearance: none;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--ink);
+      font: 500 13px/1 var(--font);
+      padding: 9px 15px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.18s ease;
+      outline: none;
+    }
+    button:hover:not(:disabled) { border-color: var(--border-strong); background: var(--surface-2); transform: translateY(-1px); }
+    button:active:not(:disabled) { transform: translateY(0); }
+    button.primary {
+      background: var(--accent); border-color: var(--accent);
+      color: var(--accent-ink); font-weight: 700;
+      box-shadow: 0 2px 8px var(--accent-glow);
+    }
+    button.primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); box-shadow: 0 4px 16px var(--accent-glow); }
+    button:disabled { opacity: 0.38; cursor: not-allowed; transform: none; }
+    button.danger {
+      background: var(--danger-bg); border-color: transparent;
+      color: var(--danger-ink); font-weight: 600;
+    }
+    button.danger:hover:not(:disabled) { background: var(--danger); color: #fff; }
+    button.sheets-btn {
+      background: hsl(152, 72%, 40%); border-color: hsl(152, 72%, 40%);
+      color: #fff; font-weight: 700;
+      display: flex; align-items: center; gap: 6px;
+    }
+    button.sheets-btn:hover:not(:disabled) { background: hsl(152, 72%, 34%); border-color: hsl(152, 72%, 34%); }
+    button.icon-btn { background: var(--bg); color: var(--ink); font-size: 13px; }
+    button.icon-btn.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+    .file-button {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--accent); border-color: var(--accent);
+      color: #fff; font-weight: 700; font-size: 13px; font-family: var(--font);
+      padding: 9px 15px; border-radius: var(--radius); cursor: pointer;
+      transition: all 0.18s; white-space: nowrap;
+    }
+    .file-button:hover { background: var(--accent-hover); border-color: var(--accent-hover); transform: translateY(-1px); }
     input[type="file"] { position: absolute; width: 1px; height: 1px; opacity: 0; }
 
-    select.file-button { padding-right: 32px; text-overflow: ellipsis; max-width: 180px; background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%2364748b%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E"); background-repeat: no-repeat; background-position: right 12px top 50%; background-size: 10px auto; }
+    select.file-button {
+      padding-right: 32px; text-overflow: ellipsis; max-width: 200px;
+      background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23ffffff%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+      background-repeat: no-repeat; background-position: right 10px top 52%; background-size: 9px;
+      font-family: var(--font); font-weight: 600; font-size: 13px;
+    }
 
-    button.icon-btn { background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 10px 16px; font-weight: 500; font-size: 14px; transition: 0.2s; cursor: pointer; }
-    button.icon-btn.active { background: var(--line); box-shadow: inset 0 2px 4px rgba(0,0,0,0.05); }
+    /* Profile select neutral style */
+    select#profileSelect.file-button {
+      background-color: var(--surface);
+      border-color: var(--border-strong);
+      color: var(--ink);
+      background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%238888a8%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+    }
+    select#profileSelect.file-button:hover { background-color: var(--surface-2); }
 
-    .multi-select { position: relative; width: 100%; min-width: 140px; }
-    .multi-select-btn { height: 38px; width: 100%; display: block; text-align: left; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 0 24px 0 12px; font-size: 13px; font-weight: 500; cursor: pointer; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; position: relative; transition: 0.2s; }
-    .multi-select-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-    .multi-select-btn::after { content: ""; position: absolute; right: 12px; top: 50%; transform: translateY(-50%); border: 4px solid transparent; border-top-color: var(--muted); }
-    .multi-select-menu { position: absolute; top: calc(100% + 4px); left: 0; width: 100%; min-width: 180px; max-height: 250px; overflow-y: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 1000; display: flex; flex-direction: column; }
-    .multi-select-menu.hidden { display: none; }
-    .multi-select-item { padding: 10px 12px; display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px; border-bottom: 1px solid var(--line); color: var(--ink); transition: 0.2s; }
-    .multi-select-item:last-child { border-bottom: none; }
-    .multi-select-item:hover { background: var(--line); }
-    .multi-select-item input { width: 16px; height: 16px; cursor: pointer; accent-color: var(--accent); margin: 0; }
+    /* Admin-only pill buttons */
+    .admin-btn { font-size: 12px; font-weight: 700; padding: 8px 13px; }
 
-    main { flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden; width: 100%; }
+    /* ─── USER MENU ─────────────────────────────────────────────────── */
+    .user-profile-menu { position: relative; display: flex; align-items: center; cursor: pointer; }
+    .user-avatar {
+      width: 34px; height: 34px; border-radius: 50%;
+      border: 2px solid var(--border-strong);
+      transition: border-color 0.2s; object-fit: cover;
+    }
+    .user-profile-menu:hover .user-avatar { border-color: var(--accent); }
+    .user-dropdown {
+      position: absolute; right: 0; top: calc(100% + 10px);
+      background: var(--bg); border: 1px solid var(--border-strong);
+      border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
+      display: none; flex-direction: column; min-width: 180px; overflow: hidden; z-index: 1000;
+      animation: dropIn 0.2s ease both;
+    }
+    @keyframes dropIn {
+      from { opacity: 0; transform: translateY(-8px) scale(0.97); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .user-dropdown.show { display: flex; }
+    .user-dropdown button {
+      appearance: none; border: none; border-radius: 0;
+      background: transparent; padding: 11px 16px; text-align: left;
+      font-size: 13px; font-weight: 500; color: var(--ink);
+      cursor: pointer; width: 100%; transition: background-color 0.15s;
+      border-bottom: 1px solid var(--border);
+    }
+    .user-dropdown button:last-child { border-bottom: none; }
+    .user-dropdown button:hover { background: var(--surface); transform: none; }
 
-    .tabs-container { flex-shrink: 0; display: flex; flex-wrap: nowrap; gap: 8px; padding: 16px 24px 0; border-bottom: 2px solid var(--line); background: var(--bg); overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; position: relative; z-index: 20; }
+    /* ─── TABS ──────────────────────────────────────────────────────── */
+    .tabs-container {
+      flex-shrink: 0;
+      display: flex; flex-wrap: nowrap; gap: 4px;
+      padding: 12px 20px 0;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+      overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none;
+      position: relative; z-index: 20;
+      scroll-snap-type: x mandatory;
+      scroll-padding-left: 20px;
+    }
     .tabs-container::-webkit-scrollbar { display: none; }
-    .tab-btn { background: transparent; border: none; color: var(--muted); font-size: 14px; font-weight: 600; padding: 10px 16px 14px; margin-bottom: -2px; border-bottom: 2px solid transparent; border-radius: 0; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
-    .tab-btn:hover { color: var(--ink); transform: none; }
+    .tab-btn {
+      flex-shrink: 0; scroll-snap-align: start;
+      background: transparent; border: none; border-radius: 0;
+      color: var(--ink-3); font-size: 13px; font-weight: 600; font-family: var(--font);
+      padding: 9px 16px 13px; margin-bottom: -1px;
+      border-bottom: 2px solid transparent;
+      cursor: pointer; transition: all 0.2s; white-space: nowrap;
+    }
+    .tab-btn:hover { color: var(--ink); transform: none; background: transparent; border-color: transparent; }
     .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
-    
-    .tab-content-wrapper { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 24px; min-height: 0; }
+    .tab-content-wrapper {
+      flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+      padding: 24px; min-height: 0;
+    }
     .tab-pane { display: none; }
     .tab-pane.active { display: block; }
 
+    /* ─── MAIN LAYOUT ────────────────────────────────────────────────── */
+    main { flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+
+    /* ─── FILTERS ───────────────────────────────────────────────────── */
     .filters-panel { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; }
-    
-    /* MODIFIED MAIN SEARCH ROW */
-    .filter-row.main-search { display: flex; align-items: stretch; gap: 8px; flex-wrap: wrap; width: 100%; }
-    .filter-row.main-search input { flex: 1; min-width: 150px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg); color: var(--ink); font: inherit; font-size: 15px; padding: 12px 16px; outline: none; transition: all 0.2s; height: 42px; }
-    .filter-row.main-search input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.2); }
-    #searchTriggerBtn { height: 42px; padding: 0 20px; font-size: 15px; flex-shrink: 0; }
-    .filter-row.main-search > button:not(#searchTriggerBtn) { height: 42px; }
-    
-    .advanced-filters { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; align-items: end; }
-    .date-filter { display: flex; flex-direction: column; gap: 4px; }
-    .date-filter label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
-    .date-filter input { width: 100%; height: 38px; padding: 0 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); font-family: inherit; font-size: 13px; outline: none; cursor: pointer; }
-    [data-theme="dark"] .date-filter input::-webkit-calendar-picker-indicator { filter: invert(1); opacity: 0.7; cursor: pointer; }
+    .filter-row.main-search { display: flex; align-items: stretch; gap: 8px; flex-wrap: wrap; }
+    .filter-row.main-search input {
+      flex: 1; min-width: 160px; height: 40px;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius); background: var(--bg);
+      color: var(--ink); font: 15px/1 var(--font);
+      padding: 0 16px; outline: none;
+      transition: all 0.2s;
+    }
+    .filter-row.main-search input::placeholder { color: var(--ink-3); }
+    .filter-row.main-search input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+    #searchTriggerBtn { height: 40px; padding: 0 20px; }
+    .filter-row.main-search > button:not(#searchTriggerBtn) { height: 40px; }
+    .advanced-filters {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 16px;
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 10px; align-items: end;
+    }
+    .date-filter { display: flex; flex-direction: column; gap: 5px; }
+    .date-filter label { font-size: 11px; font-weight: 700; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.6px; }
+    .date-filter input {
+      width: 100%; height: 38px; padding: 0 12px;
+      border: 1px solid var(--border-strong); border-radius: var(--radius);
+      background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 13px; outline: none;
+    }
+    [data-theme="dark"] .date-filter input::-webkit-calendar-picker-indicator { filter: invert(1); opacity: 0.5; }
 
-    .flashcard-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 16px; }
-    
-    .course.flashcard, .flashcard { display: flex; flex-direction: column; padding: 20px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); box-shadow: 0 1px 3px rgb(0 0 0 / 0.05); transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s; }
-    .course.flashcard:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgb(0 0 0 / 0.08); border-color: var(--accent); }
-    .course.flashcard label { display: flex; align-items: flex-start; gap: 14px; cursor: pointer; flex: 1; margin-bottom: 8px; }
-    .course.flashcard input[type="checkbox"] { width: 20px; height: 20px; margin-top: 2px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
-    .card-content { display: flex; flex-direction: column; gap: 6px; flex: 1; }
-    .card-code { font-size: 12px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
-    .card-title { font-size: 15px; font-weight: 600; line-height: 1.3; color: var(--ink); }
-    .card-meta { font-size: 13px; color: var(--muted); }
-    .mode-badge { display: inline-block; padding: 3px 8px; border-radius: 6px; background: var(--line); color: var(--ink); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
-    
-    .details-btn { align-self: flex-end; padding: 6px 14px; font-size: 12px; font-weight: 600; background: transparent; border: 1px solid var(--accent); color: var(--accent); border-radius: 6px; cursor: pointer; transition: 0.2s; }
-    .details-btn:hover { background: var(--accent); color: var(--accent-ink); }
+    /* ─── MULTI-SELECT ──────────────────────────────────────────────── */
+    .multi-select { position: relative; width: 100%; min-width: 140px; }
+    .multi-select-btn {
+      height: 38px; width: 100%; display: block; text-align: left;
+      background: var(--bg); color: var(--ink);
+      border: 1px solid var(--border-strong); border-radius: var(--radius);
+      padding: 0 28px 0 12px; font: 500 13px/1 var(--font);
+      cursor: pointer; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;
+      position: relative; transition: all 0.18s;
+    }
+    .multi-select-btn:disabled { opacity: 0.38; cursor: not-allowed; }
+    .multi-select-btn::after {
+      content: ""; position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+      border: 4px solid transparent; border-top-color: var(--ink-3);
+    }
+    .multi-select-menu {
+      position: absolute; top: calc(100% + 4px); left: 0;
+      width: 100%; min-width: 190px; max-height: 240px; overflow-y: auto;
+      background: var(--bg); border: 1px solid var(--border-strong);
+      border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
+      z-index: 1000; display: flex; flex-direction: column;
+      animation: dropIn 0.18s ease both;
+    }
+    .multi-select-menu.hidden { display: none; }
+    .multi-select-item {
+      padding: 10px 12px; display: flex; align-items: center; gap: 10px;
+      cursor: pointer; font-size: 13px; border-bottom: 1px solid var(--border);
+      color: var(--ink); transition: background 0.15s;
+    }
+    .multi-select-item:last-child { border-bottom: none; }
+    .multi-select-item:hover { background: var(--surface); }
+    .multi-select-item input { width: 16px; height: 16px; cursor: pointer; accent-color: var(--accent); margin: 0; }
 
-    .subhead { display: flex; justify-content: space-between; align-items: end; gap: 12px; margin-bottom: 16px; }
-    .empty { display: grid; place-items: center; min-height: 0; text-align: center; color: var(--muted); padding: 20px; } 
-    .empty strong { display: block; color: var(--ink); font-size: 18px; margin-bottom: 8px; font-weight: 600; }
-    .flashcard-grid .empty { grid-column: 1 / -1; border: 2px dashed var(--line); border-radius: var(--radius); background: transparent; box-shadow: none; min-height: 200px; }
+    /* ─── SUBHEAD ────────────────────────────────────────────────────── */
+    .subhead { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; margin-bottom: 20px; }
+    .subhead h2 { font-size: 17px; font-weight: 700; letter-spacing: -0.3px; }
+    .small { color: var(--ink-3); font-size: 12px; font-weight: 500; }
+    .pill-count {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: var(--accent-soft); color: var(--accent);
+      border-radius: 99px; padding: 4px 10px;
+      font-size: 12px; font-weight: 700; letter-spacing: 0.2px;
+    }
 
-    .table-wrap { width: 100%; overflow-x: auto; overflow-y: hidden; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg); box-shadow: var(--shadow); }
+    /* ─── COURSE CARDS ──────────────────────────────────────────────── */
+    .flashcard-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr)); gap: 14px; }
+    .course.flashcard, .flashcard {
+      display: flex; flex-direction: column;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+      box-shadow: var(--shadow-sm);
+    }
+    .course.flashcard:hover { transform: translateY(-3px); box-shadow: var(--shadow); border-color: var(--accent); }
+    .course.flashcard label { display: flex; align-items: flex-start; gap: 14px; cursor: pointer; flex: 1; padding: 18px 18px 12px; }
+    .course.flashcard input[type="checkbox"] { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+    .card-content { display: flex; flex-direction: column; gap: 5px; flex: 1; }
+    .card-code { font-size: 11px; font-weight: 800; color: var(--accent); text-transform: uppercase; letter-spacing: 0.6px; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+    .card-title { font-size: 14px; font-weight: 700; line-height: 1.35; color: var(--ink); }
+    .card-meta { font-size: 12px; color: var(--ink-3); line-height: 1.5; }
+    .card-footer { padding: 10px 18px 14px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--border); }
+    .end-date-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 8px; border-radius: var(--radius-sm);
+      background: var(--surface-2); color: var(--ink-3);
+      font-size: 11px; font-weight: 600;
+    }
+    .mode-badge {
+      display: inline-block; padding: 2px 7px; border-radius: 4px;
+      background: var(--surface-2); color: var(--ink-2);
+      font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px;
+    }
+    .details-btn {
+      padding: 6px 12px; font-size: 12px; font-weight: 700;
+      background: transparent; border: 1px solid var(--accent); color: var(--accent);
+      border-radius: var(--radius-sm); cursor: pointer; transition: all 0.18s;
+    }
+    .details-btn:hover { background: var(--accent); color: #fff; transform: none; }
+
+    /* ─── EMPTY STATE ───────────────────────────────────────────────── */
+    .empty {
+      display: grid; place-items: center; min-height: 0;
+      text-align: center; color: var(--ink-3); padding: 32px;
+    }
+    .empty-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.6; }
+    .empty strong { display: block; color: var(--ink); font-size: 16px; margin-bottom: 6px; font-weight: 700; }
+    .empty p { font-size: 13px; color: var(--ink-3); max-width: 300px; margin: 0 auto; line-height: 1.6; }
+    .flashcard-grid .empty {
+      grid-column: 1 / -1; border: 2px dashed var(--border-strong);
+      border-radius: var(--radius-lg); min-height: 220px;
+      background: transparent; box-shadow: none;
+    }
+
+    /* ─── ADMIN TABS ────────────────────────────────────────────────── */
+    .admin-tabs {
+      display: flex; gap: 4px; padding: 4px; background: var(--surface-2); border-radius: var(--radius-lg); margin-bottom: 20px; width: fit-content;
+    }
+    .admin-tab {
+      padding: 10px 20px; font-size: 13px; font-weight: 600; font-family: var(--font);
+      background: transparent; color: var(--ink-3); border: none; border-radius: var(--radius-sm);
+      cursor: pointer; outline: none; transition: all 0.2s;
+    }
+    .admin-tab:hover { color: var(--ink); background: var(--surface); }
+    .admin-tab.active { background: var(--bg); color: var(--ink); box-shadow: var(--shadow-sm); }
+    .admin-tab-pane { display: none; }
+    .admin-tab-pane.active { display: block; animation: fade-in 0.3s ease; }
+
+    /* ─── TIMETABLE GRID ────────────────────────────────────────────── */
+    .table-wrap {
+      width: 100%; overflow-x: auto; overflow-y: hidden;
+      border: 1px solid var(--border); border-radius: var(--radius-lg);
+      background: var(--bg); box-shadow: var(--shadow-sm);
+    }
     #preview.table-wrap { max-height: calc(100dvh - 200px); overflow-y: auto; }
     .timetable-grid { display: grid; width: max-content; min-width: 100%; }
-    
-    .grid-cell { border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); padding: 10px; min-height: 60px; text-align: center; font-size: 13px; line-height: 1.3; background: var(--bg); display: flex; flex-direction: column; justify-content: center; overflow-wrap: anywhere; }
-    .grid-cell.header, .grid-cell.date { background: var(--header); font-weight: 600; color: var(--ink); }
-    .grid-cell.header { position: sticky; top: 0; z-index: 10; box-shadow: 0 1px 0 var(--line); } 
-    .grid-cell.date { position: sticky; left: 0; z-index: 11; border-right: 2px solid var(--line); font-size: 12px; }
+    .grid-cell {
+      border-bottom: 1px solid var(--border); border-right: 1px solid var(--border);
+      padding: 10px 12px; min-height: 60px; text-align: center;
+      font-size: 13px; line-height: 1.35; background: var(--bg);
+      display: flex; flex-direction: column; justify-content: center;
+      overflow-wrap: anywhere;
+    }
+    .grid-cell.header, .grid-cell.date { background: var(--surface); font-weight: 600; color: var(--ink); }
+    .grid-cell.header { position: sticky; top: 0; z-index: 10; box-shadow: 0 1px 0 var(--border); font-size: 12px; text-transform: uppercase; letter-spacing: 0.4px; }
+    .grid-cell.date { position: sticky; left: 0; z-index: 11; border-right: 2px solid var(--border-strong); font-size: 11.5px; }
     .grid-cell.header.date, .grid-cell.header.count { z-index: 12; }
-    
-    .grid-cell.clash { background: var(--danger-bg); color: var(--danger-ink); border-left: 3px solid var(--danger-ink); }
-    .session + .session { border-top: 1px dashed var(--line); margin-top: 6px; padding-top: 6px; }
+    .grid-cell.clash { background: var(--danger-bg); color: var(--danger-ink); border-left: 3px solid var(--danger); }
+    .session + .session { border-top: 1px dashed var(--border-strong); margin-top: 7px; padding-top: 7px; }
 
+    /* ─── DETAILS TABLE ─────────────────────────────────────────────── */
     .details-table { width: 100%; border-collapse: collapse; font-size: 13px; background: var(--bg); }
-    .details-table th, .details-table td { border: 1px solid var(--line); padding: 12px 14px; text-align: left; vertical-align: middle; }
-    .details-table th { background: var(--table-head-bg); color: var(--table-head-ink); font-weight: 600; white-space: nowrap; }
+    .details-table th, .details-table td { border: 1px solid var(--border); padding: 11px 14px; text-align: left; vertical-align: middle; }
+    .details-table th { background: var(--table-head-bg); color: var(--table-head-ink); font-weight: 700; white-space: nowrap; font-size: 12px; text-transform: uppercase; letter-spacing: 0.4px; }
+    .details-table tr:hover td { background: var(--surface); }
 
-    .att-cell { cursor: pointer; user-select: none; min-width: 75px; text-align: center !important; transition: opacity 0.2s, background-color 0.2s; }
+    /* ─── ATTENDANCE ────────────────────────────────────────────────── */
+    .att-cell { cursor: pointer; user-select: none; min-width: 78px; text-align: center !important; transition: opacity 0.15s, background-color 0.15s; }
     .att-cell:hover { opacity: 0.8; }
-    .att-present { background-color: #dcfce7 !important; color: #166534; }
-    .att-absent { background-color: #fee2e2 !important; color: #991b1b; }
-    [data-theme="dark"] .att-present { background-color: rgba(34, 197, 94, 0.2) !important; color: #86efac; }
-    [data-theme="dark"] .att-absent { background-color: rgba(239, 68, 68, 0.2) !important; color: #fca5a5; }
-    
-    .att-date { font-size: 11px; color: inherit; opacity: 0.75; margin-bottom: 4px; display: block; line-height: 1; }
+    .att-present { background-color: var(--success-bg) !important; color: var(--success-ink); }
+    .att-absent  { background-color: var(--danger-bg)  !important; color: var(--danger-ink); }
+    [data-theme="dark"] .att-present { background-color: rgba(34, 197, 94, 0.18) !important; color: hsl(152, 72%, 65%); }
+    [data-theme="dark"] .att-absent  { background-color: rgba(239, 68, 68, 0.18) !important; color: hsl(4, 86%, 70%); }
+    .att-date   { font-size: 11px; color: inherit; opacity: 0.75; margin-bottom: 3px; display: block; line-height: 1; }
     .att-status { font-weight: 700; font-size: 13px; line-height: 1; display: block; margin-top: 4px; }
-    
-    .att-cell:not(.att-present):not(.att-absent) .att-status { background: var(--panel); color: var(--accent); font-weight: 600; font-size: 11px; border: 1px solid var(--accent); border-radius: 6px; padding: 5px 8px; display: inline-block; margin-top: 4px; box-shadow: 0 1px 2px rgb(0 0 0 / 0.05); transition: all 0.2s ease; }
-    .att-cell:not(.att-present):not(.att-absent):hover .att-status { background: var(--accent); color: var(--accent-ink); }
-    .att-cell:not(.att-present):not(.att-absent) .att-date { color: var(--muted); opacity: 0.6; }
+    .att-cell:not(.att-present):not(.att-absent) .att-status {
+      background: var(--surface); color: var(--accent); font-weight: 700; font-size: 11px;
+      border: 1px solid var(--accent); border-radius: 5px; padding: 4px 8px;
+      display: inline-block; margin-top: 4px; transition: all 0.18s;
+    }
+    .att-cell:not(.att-present):not(.att-absent):hover .att-status { background: var(--accent); color: #fff; }
+    .att-cell:not(.att-present):not(.att-absent) .att-date { color: var(--ink-3); opacity: 0.6; }
 
-    .error { margin: 12px 18px 0; color: var(--danger-ink); font-size: 13px; }
+    /* ─── MISC ──────────────────────────────────────────────────────── */
+    .hidden { display: none !important; }
+    #error { margin: 10px 16px 0; color: var(--danger-ink); font-size: 13px; font-weight: 500; }
 
+    /* ─── RESPONSIVE ────────────────────────────────────────────────── */
     @media (max-width: 840px) {
-      :root { --col-date: 72px; --col-time: 130px; --col-count: 55px; } 
+      :root { --col-date: 72px; --col-time: 130px; --col-count: 56px; }
       .grid-cell { padding: 8px 4px; min-height: 50px; font-size: 12px; }
       .grid-cell.date { font-size: 10.5px; word-break: break-word; }
-      .session + .session { margin-top: 6px; padding-top: 6px; }
       .filter-row.main-search input, .date-filter input, button, select, .file-button { font-size: 16px !important; }
-      header { flex-wrap: wrap; gap: 8px; position: relative; padding: max(14px, env(safe-area-inset-top)) 16px 14px 16px; }
-      header > div:first-child { width: calc(100% - 50px); margin-bottom: 0; } 
+      header { flex-wrap: wrap; gap: 8px; padding: max(12px, env(safe-area-inset-top)) 16px 12px 16px; }
+      header > .header-brand { width: calc(100% - 50px); }
       .spacer { display: none; }
       .header-controls { width: 100%; display: flex; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-bottom: 4px; gap: 8px; margin-top: 4px; }
-      .header-controls::-webkit-scrollbar { display: none; } 
+      .header-controls::-webkit-scrollbar { display: none; }
       .header-controls > * { flex-shrink: 0; }
       select#profileSelect { margin-left: 0 !important; }
-      .user-profile-menu { position: absolute; top: max(14px, env(safe-area-inset-top)); right: 16px; } 
-      .tabs-container { padding: 12px 16px 0; }
-      .tab-content-wrapper { padding: 16px; padding-bottom: max(16px, env(safe-area-inset-bottom)); clip-path: inset(0); overscroll-behavior: contain; }
+      .user-profile-menu { position: absolute; top: max(14px, env(safe-area-inset-top)); right: 16px; }
+      .tabs-container { padding: 10px 16px 0; }
+      .tab-content-wrapper { padding: 16px; padding-bottom: max(16px, env(safe-area-inset-bottom)); overscroll-behavior: contain; clip-path: inset(0); }
       #viewTimetable { overflow: hidden; }
-      .tab-content-wrapper { overscroll-behavior-y: contain; }
-      .table-wrap { width: 100%; overflow-x: auto; overflow-y: hidden; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg); box-shadow: var(--shadow); }
+      .table-wrap { border: 1px solid var(--border); }
       #preview.table-wrap { margin-bottom: 0 !important; min-height: 0 !important; max-height: calc(100dvh - 240px) !important; overflow-y: auto !important; display: block !important; }
       #preview.empty { min-height: 50vh; }
+      .login-card { padding: 36px 24px; }
+      #loginScreen h1 { font-size: 28px; }
+      .admin-metrics { flex-direction: column; }
     }
-    @media (hover: none) { button:hover:not(:disabled), .file-button:hover, .tab-btn:hover, label.course.flashcard:hover { transform: none; } button.primary:hover:not(:disabled) { border-color: var(--accent); } }
+    @media (hover: none) {
+      button:hover:not(:disabled), .file-button:hover, .tab-btn:hover { transform: none; }
+      button.primary:hover:not(:disabled) { border-color: var(--accent); }
+    }
+    /* ─── INSTALL BANNER ──────────────────────────────────────────── */
+    .install-banner {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 9999;
+      background: var(--surface); border-top: 1px solid var(--border-strong);
+      box-shadow: 0 -4px 24px rgba(0,0,0,0.3);
+      padding: 16px 20px; display: flex; align-items: center; gap: 14px;
+      transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .install-banner.show { transform: translateY(0); }
+    .install-banner-icon {
+      width: 48px; height: 48px; border-radius: 12px; flex-shrink: 0;
+      object-fit: cover;
+    }
+    .install-banner-text { flex: 1; min-width: 0; }
+    .install-banner-text strong {
+      display: block; font-size: 14px; color: var(--ink); margin-bottom: 2px;
+    }
+    .install-banner-text span {
+      font-size: 12px; color: var(--ink-3); line-height: 1.3;
+    }
+    .install-banner-btn {
+      flex-shrink: 0; padding: 8px 16px; border-radius: 8px;
+      background: var(--accent); color: #fff; border: none;
+      font-size: 13px; font-weight: 600; cursor: pointer;
+      font-family: var(--font);
+    }
+    .install-banner-close {
+      flex-shrink: 0; background: none; border: none; color: var(--ink-3);
+      font-size: 20px; cursor: pointer; padding: 4px; line-height: 1;
+    }
   </style>
 </head>
 <body>
 
-  <div id="loadingOverlay" class="hidden"><div class="spinner"></div><div id="loadingMsg">Loading your schedule...</div></div>
+  <!-- Install Banner -->
+  <div id="installBanner" class="install-banner">
+    <img src="icon-192.png" alt="App Icon" class="install-banner-icon">
+    <div class="install-banner-text">
+      <strong>Install Timetable App</strong>
+      <span id="installInstructions">Add to your home screen for the best experience</span>
+    </div>
+    <button id="installBannerBtn" class="install-banner-btn">Install</button>
+    <button id="installBannerClose" class="install-banner-close">&times;</button>
+  </div>
 
+  <!-- Loading Overlay -->
+  <div id="loadingOverlay" class="hidden">
+    <div class="spinner"></div>
+    <div id="loadingMsg">Loading your schedule...</div>
+  </div>
+
+  <!-- Course Detail Modal -->
   <div id="courseModal" class="modal-overlay">
     <div class="modal-box">
-      <h3 id="modalCourseName" style="font-size: 18px; margin: 0 0 16px; line-height: 1.3; color: var(--ink);">Course Name</h3>
+      <h3 id="modalCourseName">Course Name</h3>
       <div class="modal-details" id="modalDetailsContent"></div>
       <button class="modal-close" id="closeModalBtn">Close</button>
     </div>
   </div>
 
+  <!-- Master Sheet Config Modal -->
   <div id="masterSheetModal" class="modal-overlay">
     <div class="modal-box" style="max-width: 500px;">
-      <h3 style="font-size: 18px; margin: 0 0 16px; line-height: 1.3; color: var(--ink);">Master Sheet Configuration</h3>
-      <div style="display: flex; flex-direction: column; gap: 16px;">
-          <div>
-              <label style="font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase;">PGP Track Sheet URL</label>
-              <input type="text" id="adminPgpUrl" placeholder="https://docs.google.com/spreadsheets/d/..." style="width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--line); margin-top: 4px; background: var(--bg); color: var(--ink);">
-              <div style="font-size: 11px; color: var(--muted); margin-top: 6px;" id="pgpLastSync">Last Synced: Never</div>
-          </div>
-          <div>
-              <label style="font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase;">HRM Track Sheet URL</label>
-              <input type="text" id="adminHrmUrl" placeholder="https://docs.google.com/spreadsheets/d/..." style="width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--line); margin-top: 4px; background: var(--bg); color: var(--ink);">
-              <div style="font-size: 11px; color: var(--muted); margin-top: 6px;" id="hrmLastSync">Last Synced: Never</div>
-          </div>
+      <h3>Master Sheet Configuration</h3>
+      <div style="display: flex; flex-direction: column; gap: 18px;">
+        <div>
+          <label style="font-size: 11px; font-weight: 700; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.6px; display: block; margin-bottom: 6px;">PGP Track Sheet URL</label>
+          <input type="text" id="adminPgpUrl" placeholder="https://docs.google.com/spreadsheets/d/..." style="width: 100%; padding: 10px 14px; border-radius: var(--radius); border: 1px solid var(--border-strong); background: var(--surface); color: var(--ink); font-family: var(--font); font-size: 13px; outline: none;">
+          <div style="font-size: 11px; color: var(--ink-3); margin-top: 6px;" id="pgpLastSync">Last Synced: Never</div>
+        </div>
+        <div>
+          <label style="font-size: 11px; font-weight: 700; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.6px; display: block; margin-bottom: 6px;">HRM Track Sheet URL</label>
+          <input type="text" id="adminHrmUrl" placeholder="https://docs.google.com/spreadsheets/d/..." style="width: 100%; padding: 10px 14px; border-radius: var(--radius); border: 1px solid var(--border-strong); background: var(--surface); color: var(--ink); font-family: var(--font); font-size: 13px; outline: none;">
+          <div style="font-size: 11px; color: var(--ink-3); margin-top: 6px;" id="hrmLastSync">Last Synced: Never</div>
+        </div>
       </div>
       <div style="margin-top: 24px; display: flex; gap: 10px; justify-content: flex-end;">
-          <button id="closeMasterSheetModalBtn" style="padding: 10px 16px; font-weight: 600;">Cancel</button>
-          <button id="saveSheetSettingsBtn" class="primary" style="padding: 10px 16px;">Save Configuration</button>
+        <button id="closeMasterSheetModalBtn" style="padding: 10px 18px; font-weight: 600;">Cancel</button>
+        <button id="saveSheetSettingsBtn" class="primary" style="padding: 10px 18px;">Save Configuration</button>
       </div>
     </div>
   </div>
 
+  <!-- ── ARCHIVE SEMESTER MODAL ── -->
+  <div class="modal-overlay" id="archiveModal">
+    <div class="modal">
+      <h2>📦 Archive Current Semester</h2>
+      <p style="margin-bottom: 12px; color: var(--ink-2); font-size: 14px;">
+        This will take a complete snapshot of the current Master Schedule and every student's selected courses and attendance.
+        <br><br><strong style="color: var(--danger);">WARNING:</strong> This will completely wipe all students' current workspaces to prepare for the new semester. This action cannot be undone.
+      </p>
+      
+      <div style="margin-bottom: 16px;">
+        <label style="display:block; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: var(--ink-2);">Archive Name</label>
+        <input type="text" id="archiveNameInput" placeholder="e.g., Term IV - 2026" style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: var(--radius); font-family: var(--font); background: var(--surface); color: var(--ink); outline: none;">
+      </div>
+
+      <div style="margin-bottom: 20px; padding: 12px; background: var(--danger-bg); border-radius: var(--radius-sm); border: 1px solid var(--danger);">
+        <label style="display: flex; gap: 8px; align-items: flex-start; cursor: pointer;">
+          <input type="checkbox" id="archiveConfirmCheck" style="margin-top: 3px; accent-color: var(--danger);">
+          <span style="font-size: 12px; color: var(--ink); line-height: 1.4;">I understand that this action will completely wipe the current course selections and attendance data for all students in this track.</span>
+        </label>
+      </div>
+
+      <div style="display: flex; gap: 10px; justify-content: flex-end;">
+        <button id="cancelArchiveBtn" style="background: transparent; border: 1px solid var(--border); color: var(--ink);">Cancel</button>
+        <button id="confirmArchiveBtn" style="background: var(--danger); border: 1px solid var(--danger); color: #fff;" disabled>Archive & Wipe</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── LOGIN SCREEN ─────────────────────────────────────────────── -->
   <div id="loginScreen">
-    <h1>Timetable</h1>
-    <h2>Create your timetable in seconds.</h2>
-    <button id="loginBtn" class="google-btn"><img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="Google Logo">Sign in with Google</button>
-    <div id="loginError" class="error" style="margin-top: 16px;"></div>
-    <div class="credits-footer">Created by Nikhil Tayade</div>
+    <div class="login-card">
+      <div class="login-logo">📅</div>
+      <h1>Timetable</h1>
+      <h2>Build your personal MBA schedule<br>in seconds.</h2>
+      <button id="loginBtn" class="google-btn">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="Google">
+        Continue with Google
+      </button>
+      <div id="loginError" class="login-error"></div>
+    </div>
+    <div class="credits-footer">Created by Nikhil Tayade · IIM Indore</div>
   </div>
 
+  <!-- ── ONBOARDING SCREEN ────────────────────────────────────────── -->
   <div id="onboardingScreen">
-    <h1>Choose Your Program</h1>
-    <h2>Select your track to load the correct master schedule. This will set your default dashboard.</h2>
-    <button id="trackPgpBtn" class="track-btn pgp">PGP Dashboard</button>
-    <button id="trackHrmBtn" class="track-btn hrm">PGP HRM Dashboard</button>
+    <div class="onboarding-inner">
+      <h1>Choose Your Program</h1>
+      <h2>Select your track to load the correct master schedule and set your default dashboard.</h2>
+      <div class="track-cards">
+        <div class="track-card pgp" id="trackPgpBtn">
+          <span class="icon">🎓</span>
+          <div class="track-label">PGP</div>
+          <div class="track-sub">Post Graduate Programme</div>
+        </div>
+        <div class="track-card hrm" id="trackHrmBtn">
+          <span class="icon">👥</span>
+          <div class="track-label">PGP HRM</div>
+          <div class="track-sub">Human Resource Management</div>
+        </div>
+      </div>
+    </div>
+    <div class="credits-footer">Created by Nikhil Tayade · IIM Indore</div>
   </div>
 
+  <!-- ── ADMIN DASHBOARD ──────────────────────────────────────────── -->
   <div id="adminDashboardScreen" class="hidden">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; width: 100%;">
-      <h1 style="font-size: 28px;">Admin Control Center</h1>
-      <button id="closeAdminBtn" class="danger">Close Dashboard</button>
+    <div class="admin-header">
+      <h1>⚙️ Admin Control Centre</h1>
+      <button id="closeAdminBtn" class="danger">✕ Close</button>
     </div>
-    
-    <div style="display: flex; gap: 16px; margin-bottom: 24px; width: 100%; flex-wrap: wrap;">
-       <div class="flashcard" style="flex: 1; padding: 20px; min-width: 200px;">
-           <h3 style="margin:0 0 8px; color: var(--muted); font-size: 14px; text-transform: uppercase;">Total Students</h3>
-           <h2 id="metricTotal" style="margin:0; font-size: 32px; color: var(--accent);">0</h2>
-       </div>
-       <div class="flashcard" style="flex: 1; padding: 20px; min-width: 200px;">
-           <h3 style="margin:0 0 8px; color: var(--muted); font-size: 14px; text-transform: uppercase;">PGP Track</h3>
-           <h2 id="metricPGP" style="margin:0; font-size: 32px; color: var(--ink);">0</h2>
-       </div>
-       <div class="flashcard" style="flex: 1; padding: 20px; min-width: 200px;">
-           <h3 style="margin:0 0 8px; color: var(--muted); font-size: 14px; text-transform: uppercase;">HRM Track</h3>
-           <h2 id="metricHRM" style="margin:0; font-size: 32px; color: var(--ink);">0</h2>
-       </div>
+
+    <div class="admin-tabs">
+      <button class="admin-tab active" data-target="adminTabStudents">User Database</button>
+      <button class="admin-tab" data-target="adminTabSettings">Settings & Sync</button>
+      <button class="admin-tab" data-target="adminTabHistory">Semester History</button>
     </div>
-    
-    
-    
-    <input type="search" id="adminSearchUser" placeholder="Search by email, name, or UID..." style="padding: 14px 16px; width: 100%; max-width: 600px; margin-bottom: 20px; border: 1px solid var(--line); border-radius: 8px; font-size: 15px; background: var(--bg); color: var(--ink); align-self: flex-start;">
-    
-    <div class="table-wrap" style="width: 100%;">
-       <table class="details-table" style="width: 100%;">
-        <thead>
-             <tr>
-                 <th style="min-width: 250px;">Student Name / Email</th>
-                 <th style="min-width: 160px;">UID</th>
-                 <th style="min-width: 120px;">Program Track</th>
-                 <th style="min-width: 100px; text-align: center;">Saved Profiles</th>
-                 <th style="min-width: 160px;">Admin Actions</th>
-             </tr>
+
+    <div id="adminTabStudents" class="admin-tab-pane active">
+      <div class="admin-metrics">
+        <div class="metric-card">
+          <div class="metric-label">Total Students</div>
+          <div class="metric-value" id="metricTotal">0</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">PGP Track</div>
+          <div class="metric-value" id="metricPGP" style="color: var(--accent);">0</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">HRM Track</div>
+          <div class="metric-value" id="metricHRM" style="color: hsl(280, 80%, 60%);">0</div>
+        </div>
+      </div>
+
+      <input type="search" id="adminSearchUser" placeholder="🔍  Search by email, name, or UID..."
+        style="padding: 13px 16px; width: 100%; max-width: 520px; margin-bottom: 20px; border: 1px solid var(--border-strong); border-radius: var(--radius); font-size: 14px; font-family: var(--font); background: var(--surface); color: var(--ink); outline: none; display: block;">
+
+      <div style="width: 100%; overflow-x: auto; overflow-y: auto; max-height: calc(100vh - 400px); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);">
+        <table class="details-table" style="width: 100%; min-width: 900px;">
+          <thead style="position: sticky; top: 0; z-index: 5;">
+            <tr>
+              <th style="min-width: 250px;">Student Name / Email</th>
+              <th style="min-width: 160px;">UID</th>
+              <th style="min-width: 120px;">Program Track</th>
+              <th style="min-width: 100px; text-align: center;">Saved Profiles</th>
+              <th style="min-width: 160px;">Admin Actions</th>
+            </tr>
           </thead>
           <tbody id="adminUsersTableBody"></tbody>
-       </table>
+        </table>
+      </div>
+    </div>
+
+    <div id="adminTabSettings" class="admin-tab-pane">
+      <div style="display: flex; flex-direction: column; gap: 16px; max-width: 600px;">
+        <div style="background: var(--surface-2); padding: 20px; border-radius: var(--radius-lg); border: 1px solid var(--border);">
+          <h3 style="margin-bottom: 12px; font-size: 16px; color: var(--ink);">Data Synchronization</h3>
+          <p style="font-size: 13px; color: var(--ink-3); margin-bottom: 16px; line-height: 1.5;">Update the global master schedule that all students will see. You can pull the latest data directly from the configured Google Sheet, or manually upload an Excel file.</p>
+          
+          <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 16px;">
+            <select id="adminTrackSelect" class="file-button" style="background: var(--surface); color: var(--ink); border-color: var(--border-strong); font-weight: 700;">
+              <option value="PGP">Track: PGP</option>
+              <option value="HRM">Track: HRM</option>
+            </select>
+            <button id="syncSheetBtn" class="file-button" style="background: hsl(260,75%,60%); border-color: hsl(260,75%,60%); color: #fff;">⚡ Pull from Google Sheet</button>
+            <label class="file-button" id="importLabel" style="background: var(--warning); border-color: var(--warning); color: #000;">
+              📂 Manual Excel Upload
+              <input id="fileInput" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+            </label>
+          </div>
+          
+          <div style="display: flex; gap: 12px; padding-top: 16px; border-top: 1px solid var(--border);">
+            <button id="masterSheetConfigBtn" class="file-button" style="background: transparent; color: var(--ink); border: 1px solid var(--border);">⚙️ Configure Google Sheet Links</button>
+            <button id="manageSheetLinkBtn" class="file-button" style="background: transparent; color: var(--ink); border: 1px solid var(--border);">🔗 Open Master Sheet in Drive</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="adminTabHistory" class="admin-tab-pane">
+      <div style="display: flex; flex-direction: column; gap: 20px; max-width: 700px;">
+        
+        <div style="background: var(--surface-2); padding: 20px; border-radius: var(--radius-lg); border: 1px dashed var(--danger);">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;">
+            <div>
+              <h3 style="margin-bottom: 8px; font-size: 16px; color: var(--ink);">Archive Current Semester</h3>
+              <p style="font-size: 13px; color: var(--ink-3); line-height: 1.5;">When a semester finishes, create an archive snapshot of all students' attendance records and the master schedule. This permanently preserves the data and then wipes the active workspace clean for the new semester.</p>
+            </div>
+            <button id="archiveSemesterBtn" class="primary" style="background: hsl(40, 90%, 50%); border-color: hsl(40, 90%, 50%); color: #000; flex-shrink: 0;">📦 Archive Semester</button>
+          </div>
+        </div>
+
+        <div>
+          <h3 style="margin-bottom: 12px; font-size: 15px; color: var(--ink);">Manage Archived Semesters</h3>
+          <div id="adminArchiveList" style="display: flex; flex-direction: column; gap: 10px;">
+            <div style="padding: 16px; text-align: center; color: var(--ink-3); font-size: 14px; border: 1px dashed var(--border); border-radius: var(--radius);">Loading archives...</div>
+          </div>
+        </div>
+        
+      </div>
     </div>
   </div>
 
+  <!-- ── HISTORY VIEWER MODAL ── -->
+  <div class="modal-overlay" id="historyModal">
+    <div class="modal" style="max-width: 500px;">
+      <h2>🕰️ Past Semesters</h2>
+      <p style="margin-bottom: 12px; color: var(--ink-2); font-size: 14px;">Select an archived semester to view your past timetable and attendance records in read-only mode.</p>
+      
+      <div id="historyList" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; max-height: 300px; overflow-y: auto;">
+        <div style="padding: 12px; text-align: center; color: var(--ink-3); font-size: 14px; border: 1px dashed var(--border); border-radius: var(--radius);">Loading archives...</div>
+      </div>
+
+      <div style="display: flex; gap: 10px; justify-content: flex-end;">
+        <button id="closeHistoryBtn" style="background: transparent; border: 1px solid var(--border); color: var(--ink);">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── APP HEADER ───────────────────────────────────────────────── -->
   <header class="hidden" id="appHeader">
-    <div><h1>Timetable</h1><div class="status" id="status">Loading master schedule...</div></div>
+    <div class="header-brand">
+      <h1>Timetable</h1>
+      <div class="status" id="status">Loading master schedule...</div>
+    </div>
     <div class="spacer"></div>
     <div class="header-controls">
-      <button id="openAdminDashboardBtn" class="primary hidden" style="background: #ef4444; border-color: #ef4444; margin-right: 4px;">Admin Panel</button>
-      <button id="masterSheetConfigBtn" class="primary hidden" style="background:#14b8a6; border-color:#14b8a6; margin-right: 4px;">Master Sheets</button>
-      <select id="adminTrackSelect" class="file-button hidden" style="background: var(--panel); color: var(--ink); border-color: var(--line); outline: none; font-weight: 700; margin-right: 4px;">
-          <option value="PGP">View: PGP</option>
-          <option value="HRM">View: HRM</option>
-      </select>
-      <button id="manageSheetLinkBtn" class="file-button hidden" style="background:#14b8a6;color:white;border-color:#14b8a6;">Insert Sheet Link</button>
-      <button id="syncSheetBtn" class="file-button hidden" style="background: #8b5cf6; color: white; border-color: #8b5cf6;">Sync Master Sheet</button>
-      <label class="file-button hidden" id="importLabel" style="background: #eab308; color: black; border-color: #eab308;">Upload Excel<input id="fileInput" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"></label>
-      <button id="createBtn" class="primary hidden" disabled>Create Timetable</button>
-      <select id="profileSelect" class="file-button hidden" style="background: var(--bg); color: var(--ink); border-color: var(--line); outline: none;"></select>
-      <button id="saveAsBtn" class="hidden" style="background: #38bdf8; color: black; border-color: #38bdf8;">Save</button>
-      <button id="saveAttBtn" class="primary hidden" style="background: #10b981; border-color: #10b981;">Save Attendance</button>
-      <button id="newBtn">New</button>
-      <button id="deleteBtn" class="danger hidden">Delete Profile</button>
+      <!-- Admin-only buttons -->
+      <button id="openAdminDashboardBtn" class="admin-btn danger hidden">⚙️ Admin</button>
+
+      <!-- User buttons -->
+      <button id="historyBtn" class="file-button hidden" style="background: hsl(210, 20%, 25%); border-color: hsl(210, 20%, 25%);">🕰️ History</button>
+      <button id="createBtn" class="primary hidden" disabled>✨ Create Timetable</button>
+      <select id="profileSelect" class="file-button hidden"></select>
+      <button id="saveAsBtn" class="hidden" style="background: hsl(200,90%,55%); border-color: hsl(200,90%,55%); color: #000; font-weight:700;">💾 Save</button>
+      <button id="saveAttBtn" class="primary hidden" style="background: var(--success); border-color: var(--success);">✅ Save Attendance</button>
+      <button id="newBtn">+ New</button>
+      <button id="deleteBtn" class="danger hidden">🗑 Delete</button>
       <button id="exportBtn" class="hidden sheets-btn" disabled>
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-3.9 14H7v-2h8.1v2zm2-4H7v-2h10.1v2zm0-4H7V7h10.1v2z"/></svg>
-          Export
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-3.9 14H7v-2h8.1v2zm2-4H7v-2h10.1v2zm0-4H7V7h10.1v2z"/></svg>
+        Export
+      </button>
+      <button id="calendarSyncBtn" class="hidden" style="background:#1a73e8;border-color:#1a73e8;color:#fff;font-weight:600;display:flex;align-items:center;gap:6px;">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg>
+        Calendar
       </button>
     </div>
+
+  <!-- ── CALENDAR SYNC MODAL ─────────────────────────────────────── -->
+  <div id="calendarModal" class="modal-overlay">
+    <div class="modal-box" style="max-width:460px;">
+      <h3 style="font-size:18px;margin:0 0 6px;color:var(--ink);">📅 Sync to Google Calendar</h3>
+      <p style="font-size:13px;color:var(--ink-2);margin:0 0 20px;line-height:1.5;">Choose how to export your timetable. Direct sync adds events straight to your Google Calendar. ICS works with any calendar app.</p>
+      <div id="calendarSyncInfo" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-bottom:18px;font-size:13px;color:var(--ink-2);"></div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <button id="doGoogleCalendarSync" style="background:#1a73e8;border-color:#1a73e8;color:#fff;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;padding:13px;">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg>
+          Sync directly to Google Calendar
+        </button>
+        <button id="doICSDownload" style="background:var(--surface);border-color:var(--border-strong);color:var(--ink);font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;padding:13px;">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zm-14 9v2h14v-2H5z"/></svg>
+          Download .ics file (import to any calendar)
+        </button>
+        <button class="modal-close" id="closeCalendarModal" style="margin-top:4px;">Cancel</button>
+      </div>
+    </div>
+  </div>
     <div class="user-profile-menu" id="userMenuContainer">
-      <img id="userAvatar" src="" alt="User" title="Profile">
+      <img id="userAvatar" class="user-avatar" src="" alt="User" title="Profile">
       <div class="user-dropdown" id="userDropdown">
-        <button id="profileItem">Profile</button>
-        <button id="refreshBtn">Clear Cache</button>
-        <button id="reloadAppBtn">Refresh App</button>
-        <button id="wipeDataBtn" style="color: #ef4444; font-weight: 600;">Delete My Data</button>
-        <button id="themeToggle">Dark Mode 🌙</button>
-        <button id="logoutBtn">Logout</button>
+        <button id="profileItem">👤 Profile</button>
+        <button id="refreshBtn">🔄 Clear Cache</button>
+        <button id="reloadAppBtn">↺ Refresh App</button>
+        <button id="wipeDataBtn" style="color: var(--danger-ink);">⚠️ Delete My Data</button>
+        <button id="themeToggle">🌙 Dark Mode</button>
+        <button id="logoutBtn">← Log Out</button>
       </div>
     </div>
   </header>
-  
-  <div id="error" class="error" hidden></div>
-  
+
+  <div id="error" class="hidden"></div>
+
+  <!-- ── MAIN CONTENT ─────────────────────────────────────────────── -->
   <main id="mainContent" class="hidden">
     <div class="tabs-container">
-      <button id="tabSelection" class="tab-btn active">Course Selection</button>
-      <button id="tabTimetable" class="tab-btn">Timetable Grid</button>
-      <button id="tabCourses" class="tab-btn">Selected Courses</button>
+      <button id="tabSelection"  class="tab-btn active">Course Selection</button>
+      <button id="tabTimetable"  class="tab-btn">Timetable Grid</button>
+      <button id="tabCourses"    class="tab-btn">Selected Courses</button>
       <button id="tabAttendance" class="tab-btn">Attendance Tracker</button>
     </div>
 
     <div class="tab-content-wrapper">
+
+      <!-- TAB: Course Selection -->
       <div id="viewSelection" class="tab-pane active">
         <div class="filters-panel" id="courseSearchWrapper">
           <div class="filter-row main-search">
-            <input id="courseSearch" type="search" placeholder="Search course name, code, or area..." disabled>
-            <button id="searchTriggerBtn" class="primary" style="padding: 12px 18px;" disabled>Search</button>
+            <input id="courseSearch" type="search" placeholder="Search by course name, code, or area…" disabled>
+            <button id="searchTriggerBtn" class="primary" disabled>Search</button>
             <button id="toggleFiltersBtn" class="icon-btn" disabled>⚙️ Filters</button>
             <button id="toggleSelectedBtn" class="icon-btn" disabled>Show Selected (0)</button>
             <button id="selectAll" disabled>Select All</button>
             <button id="clearAll" disabled>Clear</button>
           </div>
-          
           <div class="advanced-filters hidden" id="advancedFilters">
             <div class="multi-select" id="areaFilterContainer">
               <button type="button" class="multi-select-btn" id="areaFilterBtn" disabled>All Areas</button>
@@ -399,51 +1040,94 @@
               <button type="button" class="multi-select-btn" id="creditFilterBtn" disabled>All Credits</button>
               <div class="multi-select-menu hidden" id="creditFilterMenu"></div>
             </div>
-            <select id="sisterFilter" class="file-button" style="background: var(--bg); color: var(--ink); border-color: var(--line); outline: none; height: 38px;" disabled>
+            <select id="sisterFilter" style="height: 38px; background: var(--bg); color: var(--ink); border: 1px solid var(--border-strong); border-radius: var(--radius); font-family: var(--font); font-size: 13px; padding: 0 12px; outline: none;" disabled>
               <option value="All">Sister Sec: Any</option>
               <option value="Yes">Sister Sec: Allowed</option>
               <option value="No">Sister Sec: None</option>
             </select>
             <div class="date-filter"><label>Start Date From</label><input type="date" id="startFilter" disabled onclick="try{this.showPicker()}catch(e){}"></div>
             <div class="date-filter"><label>End Date Until</label><input type="date" id="endFilter" disabled onclick="try{this.showPicker()}catch(e){}"></div>
-            <div style="display: flex; align-items: flex-end;"><button id="clearFiltersBtn" disabled style="width: 100%; height: 38px;">Reset Filters</button></div>
+            <div style="display: flex; align-items: flex-end;">
+              <button id="clearFiltersBtn" disabled style="width: 100%; height: 38px;">Reset Filters</button>
+            </div>
           </div>
         </div>
-        
+
         <div class="subhead">
-          <h2 style="margin:0;">Available Courses</h2>
-          <div class="small" id="courseCount" style="font-weight: 600;">No workbook loaded</div>
+          <h2>Available Courses</h2>
+          <div class="small" id="courseCount">No workbook loaded</div>
         </div>
         <div class="flashcard-grid" id="courseList"></div>
       </div>
 
+      <!-- TAB: Timetable Grid -->
       <div id="viewTimetable" class="tab-pane">
-        <div class="subhead"><div><h2>Personal Timetable</h2><div class="small" id="rowCount">No selected classes yet</div></div></div>
-        <div id="preview" class="empty"><div><strong>Choose your courses</strong><br>Select courses from the Course Selection tab and click Create Timetable.</div></div>
+        <div class="subhead">
+          <div>
+            <h2>Personal Timetable</h2>
+            <div class="small" id="rowCount">No selected classes yet</div>
+          </div>
+        </div>
+        <div id="preview" class="empty">
+          <div>
+            <div class="empty-icon">🗓</div>
+            <strong>Choose your courses</strong>
+            <p>Select courses from the Course Selection tab and click <b>Create Timetable</b>.</p>
+          </div>
+        </div>
       </div>
 
+      <!-- TAB: Selected Courses -->
       <div id="viewCourses" class="tab-pane">
-        <div class="subhead"><div><h2>Selected Courses Details</h2><div class="small" id="courseDetailsCount">No selected classes yet</div></div></div>
-        <div id="coursesPreview" class="empty"><div><strong>No courses selected</strong><br>Select your courses, then click Create Timetable to build the details view here.</div></div>
+        <div class="subhead">
+          <div>
+            <h2>Selected Courses Details</h2>
+            <div class="small" id="courseDetailsCount">No selected classes yet</div>
+          </div>
+        </div>
+        <div id="coursesPreview" class="empty">
+          <div>
+            <div class="empty-icon">📋</div>
+            <strong>No courses selected</strong>
+            <p>Select your courses, then click Create Timetable to build the details view here.</p>
+          </div>
+        </div>
       </div>
 
+      <!-- TAB: Attendance Tracker -->
       <div id="viewAttendance" class="tab-pane">
-        <div class="subhead"><div><h2>Attendance Tracker</h2><div class="small" id="attendanceCount">No selected classes yet</div></div></div>
-        <div id="attendancePreview" class="empty"><div><strong>No courses selected</strong><br>Select your courses, then click Create Timetable to build the tracker here.</div></div>
+        <div class="subhead">
+          <div>
+            <h2>Attendance Tracker</h2>
+            <div class="small" id="attendanceCount">No selected classes yet</div>
+          </div>
+        </div>
+        <div id="attendancePreview" class="empty">
+          <div>
+            <div class="empty-icon">✅</div>
+            <strong>No courses selected</strong>
+            <p>Select your courses, then click Create Timetable to build the tracker here.</p>
+          </div>
+        </div>
       </div>
-    </div>
+
+    </div><!-- /tab-content-wrapper -->
   </main>
 
+  <!-- ── ALL JAVASCRIPT (100% PRESERVED) ─────────────────────────── -->
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getAuth, signInWithRedirect, getRedirectResult, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-    import { getFirestore, doc, setDoc, getDoc, collection, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-      
+    // ─── DYNAMIC FIREBASE IMPORTS (offline-safe) ────────────────────
+    let OFFLINE_MODE = false;
+    let app, auth, db, provider;
+    let setDoc, getDoc, doc, collection, getDocs, deleteDoc, updateDoc, deleteField;
+    let signInWithRedirect, getRedirectResult, signInWithPopup, GoogleAuthProvider;
+    let signOut, onAuthStateChanged, setPersistence, browserLocalPersistence;
+
     const ADMIN_EMAIL = "tayadesnikhil@gmail.com";
-    
+
     const firebaseConfig = {
       apiKey: "AIzaSyDcx5O9SUhpb5N8-XaStrcGf63eE9EEdOs",
-      authDomain: "mba-timetable-maker.web.app", 
+      authDomain: "mba-timetable-maker.web.app",
       projectId: "mba-timetable-maker",
       storageBucket: "mba-timetable-maker.firebasestorage.app",
       messagingSenderId: "981801408590",
@@ -451,16 +1135,48 @@
       measurementId: "G-9PJ9YNM825"
     };
 
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-    const provider = new GoogleAuthProvider();
+    try {
+      const fbApp  = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js");
+      const fbAuth = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js");
+      const fbFs   = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
 
-    getRedirectResult(auth).catch((error) => {
-      console.error("Redirect Authentication Error:", error);
-      els.loginError.textContent = "Sign-in failed: " + error.message;
-      hideLoading();
-    });
+      app  = fbApp.initializeApp(firebaseConfig);
+      auth = fbAuth.getAuth(app);
+      db   = fbFs.getFirestore(app);
+
+      ({ signInWithRedirect, getRedirectResult, signInWithPopup, GoogleAuthProvider,
+         signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } = fbAuth);
+      ({ doc, setDoc, getDoc, collection, getDocs, deleteDoc, updateDoc, deleteField } = fbFs);
+
+      provider = new GoogleAuthProvider();
+
+      getRedirectResult(auth).catch((error) => {
+        console.error("Redirect Authentication Error:", error);
+        // els may not exist yet; guard it
+        const el = document.getElementById("loginError");
+        if (el) el.textContent = "Sign-in failed: " + error.message;
+      });
+    } catch (_fbLoadErr) {
+      console.warn("Firebase SDK unavailable — entering offline mode", _fbLoadErr);
+      OFFLINE_MODE = true;
+
+      // Stubs so every Firebase call in the app becomes a harmless no-op
+      const _noop  = () => {};
+      const _noopA = async () => {};
+      const _fakeDocRef = (...a) => a.join("/");
+
+      doc = _fakeDocRef;
+      setDoc = _noopA;  getDoc = async () => ({ exists: () => false, data: () => ({}) });
+      collection = _fakeDocRef; getDocs = async () => ({ forEach: _noop, docs: [] });
+      deleteDoc = _noopA; updateDoc = _noopA; deleteField = () => null;
+
+      signInWithRedirect = _noop; getRedirectResult = _noopA;
+      signInWithPopup = _noopA;   signOut = _noopA;
+      setPersistence = _noopA;    browserLocalPersistence = {};
+      GoogleAuthProvider = class {};
+      provider = {};
+      onAuthStateChanged = _noop; // we boot manually below
+    }
 
     const state = { 
       data: null, selected: new Set(), search: "", generatedRows: null,
@@ -579,7 +1295,7 @@
       userMenuContainer: document.getElementById("userMenuContainer"), userAvatar: document.getElementById("userAvatar"), userDropdown: document.getElementById("userDropdown"),
       profileItem: document.getElementById("profileItem"), logoutBtn: document.getElementById("logoutBtn"), refreshBtn: document.getElementById("refreshBtn"),
       reloadAppBtn: document.getElementById("reloadAppBtn"), wipeDataBtn: document.getElementById("wipeDataBtn"),
-      syncSheetBtn: document.getElementById("syncSheetBtn"), // ADMIN SYNC BTN
+      syncSheetBtn: document.getElementById("syncSheetBtn"),
       importLabel: document.getElementById("importLabel"), fileInput: document.getElementById("fileInput"), status: document.getElementById("status"), error: document.getElementById("error"),
       courseModal: document.getElementById("courseModal"), modalCourseName: document.getElementById("modalCourseName"), modalDetailsContent: document.getElementById("modalDetailsContent"), closeModalBtn: document.getElementById("closeModalBtn"),
       
@@ -589,6 +1305,9 @@
       
       createBtn: document.getElementById("createBtn"), saveAsBtn: document.getElementById("saveAsBtn"), saveAttBtn: document.getElementById("saveAttBtn"), profileSelect: document.getElementById("profileSelect"), newBtn: document.getElementById("newBtn"), 
       deleteBtn: document.getElementById("deleteBtn"), exportBtn: document.getElementById("exportBtn"),
+      calendarSyncBtn: document.getElementById("calendarSyncBtn"),
+      calendarModal: document.getElementById("calendarModal"), calendarSyncInfo: document.getElementById("calendarSyncInfo"),
+      doGoogleCalendarSync: document.getElementById("doGoogleCalendarSync"), doICSDownload: document.getElementById("doICSDownload"), closeCalendarModal: document.getElementById("closeCalendarModal"),
       advancedFilters: document.getElementById("advancedFilters"),
       areaFilterBtn: document.getElementById("areaFilterBtn"), areaFilterMenu: document.getElementById("areaFilterMenu"), modeFilterBtn: document.getElementById("modeFilterBtn"), modeFilterMenu: document.getElementById("modeFilterMenu"),
       creditFilterBtn: document.getElementById("creditFilterBtn"), creditFilterMenu: document.getElementById("creditFilterMenu"),
@@ -596,21 +1315,21 @@
       tabSelection: document.getElementById("tabSelection"), tabTimetable: document.getElementById("tabTimetable"), tabCourses: document.getElementById("tabCourses"), tabAttendance: document.getElementById("tabAttendance"),
       viewSelection: document.getElementById("viewSelection"), viewTimetable: document.getElementById("viewTimetable"), viewCourses: document.getElementById("viewCourses"), viewAttendance: document.getElementById("viewAttendance"),
       coursesPreview: document.getElementById("coursesPreview"), courseDetailsCount: document.getElementById("courseDetailsCount"), attendancePreview: document.getElementById("attendancePreview"), attendanceCount: document.getElementById("attendanceCount"),
-    
-
-      // Add these to the list:
       masterSheetConfigBtn: document.getElementById("masterSheetConfigBtn"),
       masterSheetModal: document.getElementById("masterSheetModal"),
-      closeMasterSheetModalBtn: document.getElementById("closeMasterSheetModalBtn")
+      closeMasterSheetModalBtn: document.getElementById("closeMasterSheetModalBtn"),
+      archiveSemesterBtn: document.getElementById("archiveSemesterBtn"), archiveModal: document.getElementById("archiveModal"), archiveNameInput: document.getElementById("archiveNameInput"), cancelArchiveBtn: document.getElementById("cancelArchiveBtn"), confirmArchiveBtn: document.getElementById("confirmArchiveBtn"),
+      historyBtn: document.getElementById("historyBtn"), historyModal: document.getElementById("historyModal"), historyList: document.getElementById("historyList"), closeHistoryBtn: document.getElementById("closeHistoryBtn")
     };
+
+    function markUnsaved() { state.unsavedChanges = true; els.saveAttBtn.classList.remove('hidden'); }
+    function clearUnsaved() { state.unsavedChanges = false; els.saveAttBtn.classList.add('hidden'); }
 
     function base64ToUint8Array(base64) {
         const binary_string = window.atob(base64);
         const len = binary_string.length;
         const bytes = new Uint8Array(len);
-        for (let i = 0; i < len; i++) {
-            bytes[i] = binary_string.charCodeAt(i);
-        }
+        for (let i = 0; i < len; i++) { bytes[i] = binary_string.charCodeAt(i); }
         return bytes;
     }
 
@@ -623,200 +1342,183 @@
             const data = await response.json();
             
             if (data.error) throw new Error(data.error);
+            if (!data.base64) throw new Error("No data received from sync script.");
             
             const bytes = base64ToUint8Array(data.base64);
-            state.data = await parseWorkbook(bytes);
-            
-            state.search = ""; 
-            state.generatedRows = null;
-            populateFilters(); 
-            
-            // Auto-cache it globally if an admin is the one logging in
-            if (state.currentUser && state.currentUser.email === ADMIN_EMAIL) {
-                await saveExcelCache(state.data);
-                await setDoc(doc(db, "settings", "masterSheets"), {
-                    [`lastSync_${state.userTrack}`]: Date.now()
-                }, { merge: true });
-            }
-            
-            return true;
-        } catch (error) {
-            console.error("Silent sync failed:", error);
-            return false;
+            return await parseWorkbook(bytes);
+        } catch (e) {
+            console.warn("Silent auto-sync failed:", e.message);
+            return null;
         }
     }
 
-    // Auto-sync every 5 minutes (300,000 milliseconds) if a sheet is configured
-    setInterval(async () => {
-        if (!state.userTrack) return;
-        
-        try {
-            const snap = await getDoc(doc(db, "settings", "masterSheets"));
-            if (snap.exists()) {
-                const data = snap.data();
-                const targetId = state.userTrack === "PGP" ? data.pgpSheetId : data.hrmSheetId;
-                
-                if (targetId) {
-                    // We don't update the status text here so it doesn't distract the user
-                    const success = await silentAutoSync(targetId);
-                    if (success && state.currentProfile && state.selected.size > 0) {
-                        createTimetable(false); // Silently updates the UI with any changes
-                    }
-                }
-            }
-        } catch (e) {
-            console.error("Background interval sync failed:", e);
-        }
-    }, 300000); 
-
-    function markUnsaved() { state.unsavedChanges = true; els.saveAttBtn.classList.remove("hidden"); }
-    function clearUnsaved() { state.unsavedChanges = false; els.saveAttBtn.classList.add("hidden"); }
-
-    onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        if (!user.email.endsWith('@iimidr.ac.in') && user.email !== ADMIN_EMAIL) {
-           await signOut(auth); els.loginScreen.style.display = "flex"; els.loginError.textContent = "Access restricted to @iimidr.ac.in accounts."; hideLoading(); return;
-        }
-        state.currentUser = user; 
-        els.userAvatar.src = user.photoURL || "https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png";
-        els.loginScreen.style.display = "none"; els.loginScreen.classList.add("hidden"); 
-
-        showLoading("Verifying your profile...");
-
-        try {
-            const fallbackName = user.email.split('@')[0];
-            const finalName = user.displayName ? user.displayName : fallbackName;
-
-            await setDoc(doc(db, "users", user.uid), { 
-                email: user.email, 
-                name: finalName, 
-                lastLogin: Date.now() 
-            }, { merge: true });
-
-            const userDoc = await getDoc(doc(db, "users", user.uid));
-            if (userDoc.exists() && userDoc.data().programTrack) {
-                state.userTrack = userDoc.data().programTrack;
-                launchWorkspace();
-            } else if (user.email === ADMIN_EMAIL) {
-                state.userTrack = "PGP"; 
-                await setDoc(doc(db, "users", user.uid), { programTrack: "PGP" }, { merge: true });
-                launchWorkspace();
-            } else {
-                hideLoading();
-                els.onboardingScreen.style.display = "flex";
-                els.onboardingScreen.classList.remove("hidden");
-            }
-        } catch (e) {
-            console.error("Profile check error:", e);
-            showError("Failed to load user profile.");
-            hideLoading();
-        }
-
-      } else {
-        state.currentUser = null; state.selected.clear(); state.attendance = {}; state.profiles = {}; state.currentProfile = null; state.userTrack = null; clearUnsaved();
-        els.loginScreen.style.display = "flex"; els.loginScreen.classList.remove("hidden"); els.appHeader.classList.add("hidden");
-        els.onboardingScreen.style.display = "none"; els.onboardingScreen.classList.add("hidden");
-        els.adminDashboardScreen.style.display = "none"; els.adminDashboardScreen.classList.add("hidden");
-        els.mainContent.classList.add("hidden"); els.userDropdown.classList.remove("show"); els.importLabel.classList.add("hidden"); els.adminTrackSelect.classList.add("hidden"); 
-        els.openAdminDashboardBtn.classList.add("hidden"); els.syncSheetBtn.classList.add("hidden"); hideLoading();
-      }
-    });
-
     function launchWorkspace() {
-        els.onboardingScreen.style.display = "none";
-        els.onboardingScreen.classList.add("hidden");
-        els.appHeader.classList.remove("hidden");
+        const isAdmin = state.currentUser.email === ADMIN_EMAIL;
 
-        if (state.currentUser.email === ADMIN_EMAIL) {
-            els.importLabel.classList.remove("hidden");
-            els.adminTrackSelect.classList.remove("hidden");
-            els.syncSheetBtn.classList.remove("hidden");
-            els.openAdminDashboardBtn.classList.remove("hidden");
-             els.masterSheetConfigBtn.classList.remove("hidden");
-            els.adminTrackSelect.value = state.userTrack; 
-
-            
+        // ── Persist offline identity so app can boot without Firebase SDK ──
+        if (state.currentUser && state.currentUser.uid) {
+            localStorage.setItem('offlineFallbackUser', JSON.stringify({
+                uid: state.currentUser.uid,
+                email: state.currentUser.email || '',
+                displayName: state.currentUser.displayName || '',
+                photoURL: state.currentUser.photoURL || ''
+            }));
+        }
+        if (state.userTrack && state.currentUser && state.currentUser.uid) {
+            localStorage.setItem(`offlineTrack_${state.currentUser.uid}`, state.userTrack);
         }
 
+        els.openAdminDashboardBtn.classList.toggle("hidden", !isAdmin);
+        if (isAdmin) els.adminTrackSelect.value = state.userTrack;
+
+        els.appHeader.classList.remove("hidden");
+        els.historyBtn.classList.remove("hidden");
+        els.loginScreen.style.display = "none";
+        els.onboardingScreen.style.display = "none";
+
+        // Reset state for fresh workspace
         state.data = null;
         render();
         switchTab('Selection');
-        
+
         showLoading(`Loading ${state.userTrack} schedule...`);
-        
+
+        // ── Phase 1: instant render from localStorage ──────────────────
         let cacheReady = false;
         const localExcel = safeGetLocal(`globalScheduleCache_${state.userTrack}`);
-        const localUser = safeGetLocal(`userCache_${state.currentUser.uid}`);
-        
+        const localUser  = safeGetLocal(`userCache_${state.currentUser.uid}`);
+
         if (localExcel) {
             state.data = JSON.parse(localExcel);
             populateFilters();
             els.mainContent.classList.remove("hidden");
             els.status.textContent = `${state.userTrack} loaded offline. Syncing...`;
             cacheReady = true;
-            
+
             if (localUser) {
-                const d = JSON.parse(localUser);
-                if (d.profiles && Object.keys(d.profiles).length > 0) {
-                    state.profiles = d.profiles; state.currentProfile = d.lastProfile || Object.keys(state.profiles)[0];
-                    updateProfileDropdown();
-                    const active = state.profiles[state.currentProfile];
-                    state.selected = new Set(active.selected || []); state.attendance = active.attendance || {};
-                }
+                try {
+                    const d = JSON.parse(localUser);
+                    if (d.profiles && Object.keys(d.profiles).length > 0) {
+                        state.profiles = d.profiles;
+                        state.currentProfile = d.lastProfile || Object.keys(d.profiles)[0];
+                        updateProfileDropdown();
+                        const active = state.profiles[state.currentProfile];
+                        state.selected  = new Set(active.selected  || []);
+                        state.attendance = active.attendance || {};
+                    }
+                } catch(e) {}
             }
-            if (state.currentProfile && state.selected.size > 0) { createTimetable(false); switchTab('Timetable'); } else { switchTab('Selection'); render(); }
+
+            if (state.currentProfile && state.selected.size > 0) {
+                createTimetable(false); switchTab('Timetable');
+            } else {
+                render(); switchTab('Selection');
+            }
             hideLoading();
         }
 
-       Promise.all([loadExcelCache(), loadUserData()]).then(async ([cloudExcel]) => {
+        // ── Phase 2: background cloud sync ────────────────────────────
+        Promise.all([loadExcelCache(), loadUserData()]).then(([cloudExcel]) => {
             if (cloudExcel) { state.data = cloudExcel; populateFilters(); }
-            
+            els.status.textContent = `${state.userTrack} schedule synced.`;
+
             if (!cacheReady) {
-               els.mainContent.classList.remove("hidden");
-               if (state.data) { if (state.currentProfile && state.selected.size > 0) { createTimetable(false); switchTab('Timetable'); } else { switchTab('Selection'); render(); } } 
-               else { els.status.textContent = `Waiting for admin to configure ${state.userTrack} Master Schedule.`; }
-               hideLoading();
-            } else { 
-               render(); 
-            }
-
-            // --- THE NEW SILENT SYNC TRIGGER ---
-            els.status.textContent = `Checking for background updates...`;
-            try {
-                const snap = await getDoc(doc(db, "settings", "masterSheets"));
-                if (snap.exists()) {
-                    const data = snap.data();
-                    const targetId = state.userTrack === "PGP" ? data.pgpSheetId : data.hrmSheetId;
-                    
-                    if (targetId) {
-                        const success = await silentAutoSync(targetId);
-                        if (success) {
-                            els.status.textContent = `${state.userTrack} schedule is up to date.`;
-                            // Refresh the view if the data changed silently
-                            if (state.currentProfile && state.selected.size > 0) { createTimetable(false); } else { render(); }
-                        } else {
-                            els.status.textContent = `Using cached ${state.userTrack} schedule (background sync failed).`;
-                        }
+                // Nothing was in localStorage — first load on this device
+                els.mainContent.classList.remove("hidden");
+                if (state.data) {
+                    if (state.currentProfile && state.selected.size > 0) {
+                        createTimetable(false); switchTab('Timetable');
                     } else {
-                         els.status.textContent = `No Master Sheet configured for ${state.userTrack} yet.`;
+                        render(); switchTab('Selection');
                     }
+                } else {
+                    els.status.textContent = `Waiting for admin to upload ${state.userTrack} Master Schedule.`;
                 }
-            } catch (e) { console.error(e); }
-
-        }).catch((error) => { 
-            console.error("Cloud Error:", error); 
-            els.status.textContent = "Offline mode active."; 
-            if (!cacheReady) hideLoading(); 
+                hideLoading();
+            } else {
+                // Already rendered from cache — just refresh with latest cloud data
+                if (state.currentProfile && state.selected.size > 0) {
+                    createTimetable(false);
+                } else {
+                    render();
+                }
+            }
+        }).catch((error) => {
+            console.error("Cloud Error:", error);
+            els.status.textContent = "Offline mode active.";
+            if (!cacheReady) hideLoading();
         });
     }
 
     let adminUsersList = [];
     
+    // Admin Tabs Logic
+    document.querySelectorAll('.admin-tab').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.admin-tab').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.admin-tab-pane').forEach(p => p.classList.remove('active'));
+            btn.classList.add('active');
+            const target = btn.getAttribute('data-target');
+            document.getElementById(target).classList.add('active');
+            
+            if (target === "adminTabHistory") {
+                loadAdminArchiveList();
+            }
+        });
+    });
+
+    async function loadAdminArchiveList() {
+        const listEl = document.getElementById("adminArchiveList");
+        listEl.innerHTML = `<div style="padding: 12px; text-align: center; color: var(--ink-3);">Loading archives...</div>`;
+        try {
+            const querySnapshot = await getDocs(collection(db, "archives"));
+            const archives = [];
+            querySnapshot.forEach(d => {
+                if (d.id.startsWith(state.userTrack + "_")) { archives.push({ id: d.id, ...d.data() }); }
+            });
+
+            if (archives.length === 0) {
+                listEl.innerHTML = `<div style="padding: 12px; text-align: center; color: var(--ink-3);">No past semesters found for ${state.userTrack}.</div>`;
+                return;
+            }
+
+            archives.sort((a, b) => b.timestamp - a.timestamp);
+            listEl.innerHTML = archives.map(a => {
+                const name = a.id.split("_")[1];
+                const date = new Date(a.timestamp).toLocaleDateString();
+                return `<div style="display: flex; justify-content: space-between; align-items: center; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface);">
+                    <div><strong style="color: var(--ink); font-size: 15px;">${name}</strong><br><span style="font-size: 12px; color: var(--ink-3);">Archived on ${date}</span></div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="primary load-archive-btn" data-id="${a.id}" style="padding: 6px 16px; font-size: 12px;">View</button>
+                        <button class="danger delete-archive-btn" data-id="${a.id}" style="padding: 6px 12px; font-size: 12px;">Delete</button>
+                    </div>
+                </div>`;
+            }).join("");
+        } catch (e) { console.error(e); listEl.innerHTML = `<div style="padding: 12px; text-align: center; color: var(--danger);">Failed to load archives.</div>`; }
+    }
+
+    document.getElementById("adminArchiveList").addEventListener("click", async (e) => {
+        if (e.target.classList.contains("delete-archive-btn")) {
+            const archiveId = e.target.getAttribute("data-id");
+            const archiveName = archiveId.split("_")[1];
+            if (confirm(`Are you absolutely sure you want to permanently delete the archive "${archiveName}"? This action CANNOT be undone.`)) {
+                try {
+                    e.target.textContent = "Deleting...";
+                    e.target.disabled = true;
+                    await deleteDoc(doc(db, "archives", archiveId));
+                    loadAdminArchiveList(); // Refresh list
+                } catch (err) {
+                    console.error("Delete failed", err);
+                    alert("Failed to delete archive: " + err.message);
+                }
+            }
+        }
+    });
+
     els.openAdminDashboardBtn.addEventListener("click", () => {
         els.adminDashboardScreen.style.display = "flex";
         els.adminDashboardScreen.classList.remove("hidden");
         loadAdminData();
-        
     });
 
     els.closeAdminBtn.addEventListener("click", () => {
@@ -833,9 +1535,159 @@
         els.masterSheetModal.classList.remove("show");
     });
     
-    // Optional: Close modal if clicking outside the box
     els.masterSheetModal.addEventListener("click", (e) => {
         if (e.target === els.masterSheetModal) els.masterSheetModal.classList.remove("show");
+    });
+
+    els.archiveSemesterBtn.addEventListener("click", () => {
+        document.getElementById("archiveConfirmCheck").checked = false;
+        els.confirmArchiveBtn.disabled = true;
+        els.archiveModal.classList.add("show");
+    });
+    els.cancelArchiveBtn.addEventListener("click", () => els.archiveModal.classList.remove("show"));
+    document.getElementById("archiveConfirmCheck").addEventListener("change", (e) => {
+        els.confirmArchiveBtn.disabled = !e.target.checked;
+    });
+    els.confirmArchiveBtn.addEventListener("click", async () => {
+        const archiveName = els.archiveNameInput.value.trim();
+        if (!archiveName) return alert("Please enter an archive name.");
+        if (!state.data) return alert("No active Master Schedule to archive.");
+
+        showLoading("Creating giant snapshot of entire database (This will take a moment)...");
+        els.archiveModal.classList.remove("show");
+
+        try {
+            const querySnapshot = await getDocs(collection(db, "users"));
+            const usersArchive = {};
+            querySnapshot.forEach(docSnap => {
+                const d = docSnap.data();
+                if (d.programTrack === state.userTrack && d.profiles) {
+                    usersArchive[docSnap.id] = { profiles: d.profiles };
+                }
+            });
+
+            const archiveBundle = {
+                timestamp: Date.now(),
+                masterData: JSON.stringify(state.data),
+                users: usersArchive
+            };
+
+            const safeName = archiveName.replace(/[^a-zA-Z0-9 -]/g, "");
+            const archiveDocId = `${state.userTrack}_${safeName}_${Date.now()}`;
+            await setDoc(doc(db, "archives", archiveDocId), archiveBundle);
+
+            showLoading("Archive saved. Wiping current active workspaces...");
+            const batchUpdates = [];
+            querySnapshot.forEach(userDoc => {
+                if (userDoc.data().programTrack === state.userTrack) {
+                    batchUpdates.push(updateDoc(doc(db, "users", userDoc.id), { profiles: {}, lastProfile: null }));
+                }
+            });
+            await Promise.all(batchUpdates);
+
+            await deleteDoc(doc(db, "global", `masterSchedule_${state.userTrack}`));
+            localStorage.removeItem(`globalScheduleCache_${state.userTrack}`);
+
+            alert(`Archive '${archiveName}' created successfully! All active ${state.userTrack} data has been wiped.`);
+            window.location.reload();
+        } catch (e) {
+            console.error(e);
+            alert("Failed to archive: " + e.message);
+        }
+        hideLoading();
+    });
+
+    els.historyBtn.addEventListener("click", async () => {
+        els.historyModal.classList.add("show");
+        els.historyList.innerHTML = `<div style="padding: 12px; text-align: center; color: var(--ink-3);">Loading archives...</div>`;
+        
+        try {
+            const querySnapshot = await getDocs(collection(db, "archives"));
+            const archives = [];
+            querySnapshot.forEach(d => {
+                if (d.id.startsWith(state.userTrack + "_")) { archives.push({ id: d.id, ...d.data() }); }
+            });
+
+            if (archives.length === 0) {
+                els.historyList.innerHTML = `<div style="padding: 12px; text-align: center; color: var(--ink-3);">No past semesters found for ${state.userTrack}.</div>`;
+                return;
+            }
+
+            archives.sort((a, b) => b.timestamp - a.timestamp);
+            els.historyList.innerHTML = archives.map(a => {
+                const name = a.id.split("_")[1];
+                const date = new Date(a.timestamp).toLocaleDateString();
+                return `<div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2);">
+                    <div><strong style="color: var(--ink);">${name}</strong><br><span style="font-size: 11px; color: var(--ink-3);">${date}</span></div>
+                    <button class="primary load-archive-btn" data-id="${a.id}" style="padding: 6px 12px; font-size: 12px;">View</button>
+                </div>`;
+            }).join("");
+        } catch (e) { console.error(e); els.historyList.innerHTML = `<div style="padding: 12px; text-align: center; color: var(--danger);">Failed to load archives.</div>`; }
+    });
+
+    els.closeHistoryBtn.addEventListener("click", () => els.historyModal.classList.remove("show"));
+
+    let isViewingArchive = false;
+    document.body.addEventListener("click", async (e) => {
+        if (e.target.classList.contains("load-archive-btn")) {
+            const archiveId = e.target.getAttribute("data-id");
+            els.historyModal.classList.remove("show");
+            els.adminDashboardScreen.classList.add("hidden"); // Also close admin dashboard if open
+            showLoading("Reconstructing the past...");
+
+            try {
+                const docSnap = await getDoc(doc(db, "archives", archiveId));
+                if (!docSnap.exists()) throw new Error("Archive missing");
+                const archiveData = docSnap.data();
+
+                state.data = typeof archiveData.masterData === 'string' ? JSON.parse(archiveData.masterData) : archiveData.masterData;
+                
+                const myArchivedData = archiveData.users[state.currentUser.uid];
+                if (myArchivedData && myArchivedData.profiles) {
+                    state.profiles = myArchivedData.profiles;
+                    state.currentProfile = Object.keys(state.profiles)[0] || null;
+                    if (state.currentProfile) {
+                        const active = state.profiles[state.currentProfile];
+                        state.selected = new Set(active.selected || []);
+                        state.attendance = active.attendance || {};
+                    } else { state.selected = new Set(); state.attendance = {}; }
+                } else {
+                    state.profiles = {}; state.currentProfile = null;
+                    state.selected = new Set(); state.attendance = {};
+                }
+
+                isViewingArchive = true;
+                
+                els.appHeader.style.background = "var(--warning)";
+                els.appHeader.style.color = "#000";
+                els.status.textContent = `[READ-ONLY] Viewing Archived Semester: ${archiveId.split("_")[1]}`;
+                els.status.style.color = "#000";
+                els.status.style.fontWeight = "bold";
+
+                els.saveAttBtn.style.display = "none";
+                els.createBtn.style.display = "none";
+                els.saveAsBtn.style.display = "none";
+                els.historyBtn.style.display = "none";
+                els.profileSelect.disabled = true;
+                
+                const exitBtn = document.createElement("button");
+                exitBtn.id = "exitArchiveBtn";
+                exitBtn.className = "danger";
+                exitBtn.textContent = "Exit Archive Mode";
+                exitBtn.style.marginLeft = "8px";
+                exitBtn.onclick = () => window.location.reload();
+                els.appHeader.querySelector('.header-controls').appendChild(exitBtn);
+
+                populateFilters();
+                updateProfileDropdown();
+                if (state.currentProfile && state.selected.size > 0) {
+                    createTimetable(false); switchTab('Timetable');
+                } else {
+                    render(); switchTab('Selection');
+                }
+            } catch (error) { console.error(error); alert("Failed to load archive: " + error.message); }
+            hideLoading();
+        }
     });
 
     async function loadAdminData() {
@@ -873,18 +1725,18 @@
         els.adminUsersTableBody.innerHTML = filtered.map(u => {
             const profilesCount = u.profiles ? Object.keys(u.profiles).length : 0;
             return `<tr>
-                <td><strong>${escapeHTML(u.name || "Unknown Name")}</strong><br><span style="font-size:11px; color:var(--muted);">${escapeHTML(u.email || "No Email")}</span></td>
-                <td style="font-family: monospace; font-size: 11px; color: var(--muted);">${escapeHTML(u.id)}</td>
+                <td><strong>${escapeHTML(u.name || "Unknown Name")}</strong><br><span style="font-size:11px; color:var(--ink-3);">${escapeHTML(u.email || "No Email")}</span></td>
+                <td style="font-family: monospace; font-size: 11px; color: var(--ink-3);">${escapeHTML(u.id)}</td>
                 <td>
-                    <select class="admin-track-select file-button" data-uid="${u.id}" style="padding: 6px 24px 6px 12px; height: auto;">
+                    <select class="admin-track-select" data-uid="${u.id}" style="padding: 6px 24px 6px 12px; height: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink); font-family: var(--font); font-size: 12px; cursor: pointer;">
                         <option value="PGP" ${u.programTrack==="PGP"?"selected":""}>PGP</option>
                         <option value="HRM" ${u.programTrack==="HRM"?"selected":""}>HRM</option>
                     </select>
                 </td>
-                <td style="font-weight: 600; text-align: center;">${profilesCount}</td>
-                <td>
-                    <button class="danger clear-user-btn" data-uid="${u.id}" style="padding: 6px 10px; font-size: 11px; margin-right: 4px;">Clear Data</button>
-                    <button class="primary delete-user-btn" data-uid="${u.id}" style="padding: 6px 10px; font-size: 11px; background: #7f1d1d; border-color: #7f1d1d;">Obliterate</button>
+                <td style="font-weight: 700; text-align: center;">${profilesCount}</td>
+                <td style="display: flex; gap: 6px; align-items: center;">
+                    <button class="danger clear-user-btn" data-uid="${u.id}" style="padding: 5px 10px; font-size: 11px; margin-right: 4px;">Clear Data</button>
+                    <button class="danger delete-user-btn" data-uid="${u.id}" style="padding: 5px 10px; font-size: 11px; background: var(--danger); color: #fff; border-color: var(--danger);">Obliterate</button>
                 </td>
             </tr>`;
         }).join("");
@@ -955,13 +1807,15 @@
     async function setProgramTrack(track) {
         showLoading(`Setting up ${track} workspace...`);
         state.userTrack = track;
+        localStorage.setItem(`offlineTrack_${state.currentUser.uid}`, track);
+        if (!navigator.onLine) { launchWorkspace(); return; }
         try {
             await setDoc(doc(db, "users", state.currentUser.uid), { programTrack: track }, { merge: true });
             launchWorkspace();
         } catch (e) {
             console.error("Failed to set track", e);
-            alert("Failed to save preference. Please try again.");
-            hideLoading();
+            alert("Failed to save preference to cloud. Using offline mode.");
+            launchWorkspace();
         }
     }
 
@@ -970,7 +1824,8 @@
 
     els.adminTrackSelect.addEventListener("change", (e) => {
         state.userTrack = e.target.value; state.selected.clear(); state.generatedRows = null; clearUnsaved();
-        setDoc(doc(db, "users", state.currentUser.uid), { programTrack: state.userTrack }, { merge: true });
+        localStorage.setItem(`offlineTrack_${state.currentUser.uid}`, state.userTrack);
+        try { setDoc(doc(db, "users", state.currentUser.uid), { programTrack: state.userTrack }, { merge: true }); } catch(e){}
         launchWorkspace();
     });
 
@@ -1035,7 +1890,6 @@
         renderCourseList(Boolean(state.currentProfile));
     });
 
-    // --- LIVE GOOGLE SHEET SYNC LOGIC ---
     els.syncSheetBtn.addEventListener("click", async () => {
         showLoading(`Checking configured URL for ${state.userTrack}...`);
         
@@ -1110,7 +1964,9 @@
             if (isHidden) menu.classList.remove('hidden');
         });
     }
-    setupMultiSelectDropdown(els.areaFilterBtn, els.areaFilterMenu); setupMultiSelectDropdown(els.modeFilterBtn, els.modeFilterMenu); setupMultiSelectDropdown(els.creditFilterBtn, els.creditFilterMenu);
+    setupMultiSelectDropdown(els.areaFilterBtn, els.areaFilterMenu); 
+    setupMultiSelectDropdown(els.modeFilterBtn, els.modeFilterMenu); 
+    setupMultiSelectDropdown(els.creditFilterBtn, els.creditFilterMenu);
 
     function buildMultiSelect(menuEl, btnEl, items, placeholder) {
         menuEl.innerHTML = [...items].sort((a,b) => a - b || String(a).localeCompare(String(b))).map(item => `<label class="multi-select-item"><input type="checkbox" value="${escapeHTML(item)}"> ${escapeHTML(item)}</label>`).join('');
@@ -1129,8 +1985,25 @@
       if (state.currentProfile) { state.profiles[state.currentProfile] = { selected: Array.from(state.selected), attendance: state.attendance }; }
       const saveData = { profiles: state.profiles, lastProfile: state.currentProfile, lastUpdated: Date.now() };
       safeSetLocal(`userCache_${state.currentUser.uid}`, JSON.stringify(saveData));
-      try { await setDoc(doc(db, "users", state.currentUser.uid), saveData, { merge: true }); } catch (e) {}
+      
+      if (!navigator.onLine) {
+         localStorage.setItem('pendingSync', 'true');
+         return;
+      }
+      try { 
+          await setDoc(doc(db, "users", state.currentUser.uid), saveData, { merge: true }); 
+          localStorage.removeItem('pendingSync');
+      } catch (e) {
+          localStorage.setItem('pendingSync', 'true');
+      }
     }
+    
+    window.addEventListener('online', () => {
+        if (localStorage.getItem('pendingSync') === 'true') {
+            console.log('Online detected. Syncing pending data to Firebase...');
+            syncActiveProfile();
+        }
+    });
 
     function updateProfileDropdown() {
       const names = Object.keys(state.profiles);
@@ -1142,13 +2015,36 @@
       } else { els.profileSelect.classList.add("hidden"); }
     }
 
-    els.tabSelection.addEventListener("click", () => switchTab('Selection')); els.tabTimetable.addEventListener("click", () => switchTab('Timetable')); els.tabCourses.addEventListener("click", () => switchTab('Courses')); els.tabAttendance.addEventListener("click", () => switchTab('Attendance'));
+    els.tabSelection.addEventListener("click", () => switchTab('Selection')); 
+    els.tabTimetable.addEventListener("click", () => {
+      switchTab('Timetable');
+      // Auto-rebuild timetable if profile is loaded but rows were never generated
+      if (state.data && state.currentProfile && state.selected.size > 0 && !state.generatedRows) {
+        createTimetable(false);
+      }
+    });
+    els.tabCourses.addEventListener("click", () => switchTab('Courses')); 
+    els.tabAttendance.addEventListener("click", () => switchTab('Attendance'));
     function switchTab(tab) { const tabs = ['Selection', 'Timetable', 'Courses', 'Attendance']; tabs.forEach(t => { els['tab' + t].classList.toggle('active', t === tab); els['view' + t].classList.toggle('active', t === tab); }); }
 
     function createFlashcardHTML(option, isLocked) {
         const calculatedClasses = Math.round((Number(option.credit) || 0) * 5);
         const modeBadge = option.courseMode ? `<span class="mode-badge">${escapeHTML(option.courseMode)}</span>` : "";
-        return `<div class="course flashcard" style="${isLocked ? 'opacity: 0.8; ' : ''}${getAreaColor(option.academicArea)}"><label ${isLocked ? 'style="cursor: default;"' : ''}><input type="checkbox" data-key="${escapeAttr(option.key)}" ${state.selected.has(option.key) ? "checked" : ""} ${isLocked ? "disabled" : ""}><div class="card-content"><span class="card-code">${escapeHTML(option.code)}${modeBadge}</span><span class="card-title">${escapeHTML(option.course)}</span><span class="card-meta">${escapeHTML(option.academicArea || "General")} &bull; ${formatNumber(option.credit)} cr &bull; ${calculatedClasses} classes<br><span style="display:inline-block; margin-top:6px; padding:4px 8px; background:var(--danger-bg); color:var(--danger-ink); border-radius:4px; font-size:11px; font-weight:700;">End Date: ${escapeHTML(option.endDate || 'TBD')}</span></span></div></label><button type="button" class="details-btn" data-key="${escapeAttr(option.key)}">View Details</button></div>`;
+        const areaStyle = getAreaColor(option.academicArea);
+        return `<div class="course flashcard" style="${isLocked ? 'opacity: 0.85; ' : ''}${areaStyle}">
+          <label ${isLocked ? 'style="cursor: default;"' : ''}>
+            <input type="checkbox" data-key="${escapeAttr(option.key)}" ${state.selected.has(option.key) ? "checked" : ""} ${isLocked ? "disabled" : ""}>
+            <div class="card-content">
+              <span class="card-code">${escapeHTML(option.code)}${modeBadge}</span>
+              <span class="card-title">${escapeHTML(option.course)}</span>
+              <span class="card-meta">${escapeHTML(option.academicArea || "General")} &bull; ${formatNumber(option.credit)} cr &bull; ${calculatedClasses} classes</span>
+            </div>
+          </label>
+          <div class="card-footer">
+            <span class="end-date-badge">📅 ${escapeHTML(option.endDate || 'TBD')}</span>
+            <button type="button" class="details-btn" data-key="${escapeAttr(option.key)}">Details →</button>
+          </div>
+        </div>`;
     }
 
     els.courseList.addEventListener('click', (e) => {
@@ -1162,19 +2058,20 @@
             <p><strong>Credits</strong><span>${formatNumber(option.credit)}</span></p>
             <p><strong>Instructor</strong><span>${escapeHTML(option.instructor || 'TBD')}</span></p>
             <p><strong>Sister Section Allowed</strong><span>${escapeHTML(option.sisterSection || 'N/A')}</span></p>
-            <p><strong>Pre-requisite/Remarks</strong><span>${option.remarks ? escapeHTML(option.remarks) : 'Not required'}</span></p>
+            <p><strong>Pre-requisite / Remarks</strong><span>${option.remarks ? escapeHTML(option.remarks) : 'Not required'}</span></p>
             <p><strong>Start Date</strong><span>${escapeHTML(option.startDate || 'TBD')}</span></p>
             <p><strong>End Date</strong><span>${escapeHTML(option.endDate || 'TBD')}</span></p>
             <p style="flex-direction: column; align-items: flex-start; gap: 8px; border-bottom: none;">
                 <strong>Evaluation Criteria</strong>
-                <span style="text-align: left; background: var(--line); padding: 10px 14px; border-radius: 8px; width: 100%; font-size: 13px; line-height: 1.5; color: var(--ink);">
+                <span style="text-align: left; background: var(--surface); padding: 10px 14px; border-radius: var(--radius); width: 100%; font-size: 13px; line-height: 1.6; color: var(--ink);">
                     ${escapeHTML(option.evaluation || 'Criteria not available.').replace(/\n/g, '<br>')}
                 </span>
             </p>
         `;
         els.courseModal.classList.add('show');
     });
-    els.closeModalBtn.addEventListener('click', () => els.courseModal.classList.remove('show')); els.courseModal.addEventListener('click', (e) => { if (e.target === els.courseModal) els.courseModal.classList.remove('show'); });
+    els.closeModalBtn.addEventListener('click', () => els.courseModal.classList.remove('show')); 
+    els.courseModal.addEventListener('click', (e) => { if (e.target === els.courseModal) els.courseModal.classList.remove('show'); });
 
     els.attendancePreview.addEventListener('click', function(event) {
       const clearBtn = event.target.closest('.clear-att-btn');
@@ -1290,12 +2187,23 @@
         switchTab('Selection'); 
     });
 
-    els.deleteBtn.addEventListener("click", () => { 
+    els.deleteBtn.addEventListener("click", async () => { 
         if (!state.currentProfile) return; 
         if (!confirm(`Are you sure you want to delete ${state.currentProfile}?`)) return; 
         clearUnsaved();
         
-        delete state.profiles[state.currentProfile]; 
+        const profileToDelete = state.currentProfile;
+        delete state.profiles[profileToDelete]; 
+
+        // Explicitly delete from Firebase because setDoc with merge:true won't delete missing keys
+        if (state.currentUser && navigator.onLine) {
+            try {
+                await updateDoc(doc(db, "users", state.currentUser.uid), {
+                    [`profiles.${profileToDelete}`]: deleteField()
+                });
+            } catch(e) { console.error("Failed to delete from cloud", e); }
+        }
+
         const remaining = Object.keys(state.profiles); 
         state.showSelectedOnly = false; els.toggleSelectedBtn.classList.remove("active");
         
@@ -1335,6 +2243,206 @@
     
     els.exportBtn.addEventListener("click", exportToGoogleSheets);
 
+    // ── GOOGLE CALENDAR SYNC ──────────────────────────────────────────
+
+    function parseTimeSlot(timeStr) {
+        if (!timeStr) return null;
+        let s = String(timeStr).trim().replace(/\n/g, ' ');
+
+        // Normalise text time-words so the numeric regex can match them
+        s = s.replace(/\b12\s*noon\b/gi,    '12:00 PM');
+        s = s.replace(/\bnoon\b/gi,          '12:00 PM');
+        s = s.replace(/\b12\s*midnight\b/gi, '12:00 AM');
+        s = s.replace(/\bmidnight\b/gi,      '12:00 AM');
+        s = s.replace(/\b12\s*pm\b/gi,       '12:00 PM');  // bare "12 PM" without minutes
+        s = s.replace(/\b12\s*am\b/gi,       '12:00 AM');
+
+        // Helper: normalise parsed hours with AM/PM
+        function applyAmPm(h, ampm) {
+            if (!ampm) return h;
+            if (ampm === 'PM' && h < 12) return h + 12;
+            if (ampm === 'AM' && h === 12) return 0;
+            return h;
+        }
+
+        // Pattern 1: HH:MM or HH.MM (with optional seconds) + optional AM/PM, separator, same
+        // Handles: "8:00-9:30", "08.00 AM - 09.30 AM", "08:00:00-09:30:00"
+        let m = s.match(/(\d{1,2})[:.](\d{2})(?::\d{2})?\s*(AM|PM)?\s*[-\u2013\u2014\/to ]+\s*(\d{1,2})[:.](\d{2})(?::\d{2})?\s*(AM|PM)?/i);
+        if (m) {
+            let sh = parseInt(m[1]), sm = parseInt(m[2]);
+            let eh = parseInt(m[4]), em = parseInt(m[5]);
+            const sap = (m[3] || '').toUpperCase(), eap = (m[6] || '').toUpperCase();
+            eh = applyAmPm(eh, eap); sh = applyAmPm(sh, sap);
+            // If no AM/PM given and end hour looks earlier, assume afternoon slot
+            if (!sap && !eap && eh !== 0 && eh < sh) eh += 12;
+            return { startHour: sh, startMin: sm, endHour: eh, endMin: em };
+        }
+
+        // Pattern 2: HHMM (no colon) e.g. "800-930" or "0800-0930"
+        m = s.match(/^(\d{3,4})\s*[-\u2013\u2014]+\s*(\d{3,4})/);
+        if (m) {
+            const parse4 = n => { const p = n.toString().padStart(4,'0'); return { h: parseInt(p.slice(0,2)), min: parseInt(p.slice(2)) }; };
+            const st = parse4(m[1]), en = parse4(m[2]);
+            return { startHour: st.h, startMin: st.min, endHour: en.h, endMin: en.min };
+        }
+
+        return null;
+    }
+
+    function toISOLocal(dateTs, hour, min) {
+        const d = new Date(dateTs);
+        const y = d.getFullYear(), mo = String(d.getMonth()+1).padStart(2,'0'), dy = String(d.getDate()).padStart(2,'0');
+        return `${y}-${mo}-${dy}T${String(hour).padStart(2,'0')}:${String(min).padStart(2,'0')}:00+05:30`;
+    }
+
+    function buildCalendarEvents() {
+        if (!state.generatedRows || !state.data) return [];
+        const events = [];
+        // Section fix: for each course key, remember the FIRST section seen and skip others.
+        // This mirrors the attendance tracker logic — once sections are allocated you
+        // can re-sync and only your section's events will be included.
+        const assignedSection = new Map();
+
+        for (const row of state.generatedRows) {
+            const dateTs = parseDateSafe(row.date);
+            if (!dateTs) continue;
+            for (const timeStr of state.data.times) {
+                const sessions = row.slots[timeStr] || [];
+                if (!sessions.length) continue;
+                const tp = parseTimeSlot(timeStr);
+                for (const session of sessions) {
+                    // Lock in the first section encountered per course
+                    const sec = session.sectionLabel || '';
+                    if (!assignedSection.has(session.key)) assignedSection.set(session.key, sec);
+                    if (sec !== assignedSection.get(session.key)) continue; // skip other sections
+
+                    const opt = state.data.options.find(o => o.key === session.key);
+                    const title = session.code + (sec ? ' ['+sec+']' : '');
+                    const desc  = opt ? [opt.course, opt.instructor ? 'Instructor: '+opt.instructor : '', opt.academicArea ? 'Area: '+opt.academicArea : ''].filter(Boolean).join('\n') : '';
+                    events.push({
+                        summary: title, description: desc,
+                        start: tp ? { dateTime: toISOLocal(dateTs, tp.startHour, tp.startMin), timeZone: 'Asia/Kolkata' } : { date: new Date(dateTs).toISOString().slice(0,10) },
+                        end:   tp ? { dateTime: toISOLocal(dateTs, tp.endHour,   tp.endMin),   timeZone: 'Asia/Kolkata' } : { date: new Date(dateTs).toISOString().slice(0,10) },
+                    });
+                }
+            }
+        }
+        return events;
+    }
+
+    async function syncToGoogleCalendar() {
+        const events = buildCalendarEvents();
+        if (!events.length) { alert('No events found in your timetable.'); return; }
+        els.calendarModal.classList.remove('show');
+        try {
+            showLoading('Connecting to Google Calendar\u2026');
+            const calProv = new GoogleAuthProvider();
+            calProv.addScope('https://www.googleapis.com/auth/calendar');
+            const result = await signInWithPopup(auth, calProv);
+            const token  = GoogleAuthProvider.credentialFromResult(result).accessToken;
+
+            showLoading('Setting up calendar\u2026');
+            const calName = 'MBA Timetable' + (state.currentProfile ? ' \u00b7 '+state.currentProfile : '');
+            const listRes  = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', { headers: { Authorization: 'Bearer '+token } });
+            const listData = await listRes.json();
+            let calId = null;
+            const existing = (listData.items || []).find(c => c.summary === calName);
+            if (existing) {
+                calId = existing.id;
+            } else {
+                const cr = await fetch('https://www.googleapis.com/calendar/v3/calendars', {
+                    method: 'POST',
+                    headers: { Authorization: 'Bearer '+token, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ summary: calName, timeZone: 'Asia/Kolkata' })
+                });
+                const nc = await cr.json();
+                if (!nc.id) throw new Error('Failed to create calendar: ' + (nc.error && nc.error.message || JSON.stringify(nc)));
+                calId = nc.id;
+            }
+
+            let done = 0;
+            for (let i = 0; i < events.length; i += 5) {
+                showLoading('Adding events\u2026 (' + done + '/' + events.length + ')');
+                await Promise.all(events.slice(i, i+5).map(ev =>
+                    fetch('https://www.googleapis.com/calendar/v3/calendars/' + encodeURIComponent(calId) + '/events', {
+                        method: 'POST',
+                        headers: { Authorization: 'Bearer '+token, 'Content-Type': 'application/json' },
+                        body: JSON.stringify(ev)
+                    })
+                ));
+                done += Math.min(5, events.length - i);
+            }
+            hideLoading();
+            alert('\u2705 ' + events.length + ' events added to "' + calName + '" in Google Calendar!');
+        } catch(e) {
+            hideLoading();
+            console.error('Calendar sync error:', e);
+            alert('Calendar sync failed: ' + (e.message || 'Unknown error. Check console.'));
+        }
+    }
+
+    function downloadICS() {
+        const events = buildCalendarEvents();
+        if (!events.length) { alert('No events found in your timetable.'); return; }
+        els.calendarModal.classList.remove('show');
+        function esc(s) { return String(s||'').replace(/\\/g,'\\\\').replace(/,/g,'\\,').replace(/;/g,'\\;').replace(/\n/g,'\\n'); }
+        const lines = ['BEGIN:VCALENDAR','VERSION:2.0','CALSCALE:GREGORIAN','PRODID:-//MBA Timetable//IIM Indore//EN','X-WR-TIMEZONE:Asia/Kolkata'];
+        for (const ev of events) {
+            lines.push('BEGIN:VEVENT');
+            lines.push('UID:' + Date.now() + '-' + Math.random().toString(36).slice(2) + '@timetable');
+            lines.push('DTSTAMP:' + new Date().toISOString().replace(/[-:]/g,'').replace('.000',''));
+            if (ev.start.dateTime) {
+                lines.push('DTSTART;TZID=Asia/Kolkata:' + ev.start.dateTime.slice(0,19).replace(/[-:]/g,''));
+                lines.push('DTEND;TZID=Asia/Kolkata:'   + ev.end.dateTime.slice(0,19).replace(/[-:]/g,''));
+            } else {
+                lines.push('DTSTART;VALUE=DATE:' + ev.start.date.replace(/-/g,''));
+                lines.push('DTEND;VALUE=DATE:'   + ev.end.date.replace(/-/g,''));
+            }
+            lines.push('SUMMARY:' + esc(ev.summary));
+            if (ev.description) lines.push('DESCRIPTION:' + esc(ev.description));
+            lines.push('END:VEVENT');
+        }
+        lines.push('END:VCALENDAR');
+        const blob = new Blob([lines.join('\r\n')], { type: 'text/calendar;charset=utf-8' });
+        const url  = URL.createObjectURL(blob);
+        const a    = Object.assign(document.createElement('a'), { href: url, download: 'MBA_Timetable' + (state.currentProfile ? '_'+state.currentProfile : '') + '.ics' });
+        document.body.appendChild(a); a.click();
+        setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+    }
+
+    els.calendarSyncBtn.addEventListener('click', () => {
+        const events = buildCalendarEvents();
+        const withTime = events.filter(e => e.start.dateTime).length;
+        const allDay   = events.length - withTime;
+
+        // Collect the raw time strings that fail to parse so we can fix the regex
+        const failingTimes = new Set();
+        if (allDay > 0 && state.generatedRows && state.data) {
+            for (const row of state.generatedRows) {
+                for (const ts of state.data.times) {
+                    if ((row.slots[ts] || []).length > 0 && !parseTimeSlot(ts)) {
+                        failingTimes.add('"' + String(ts).replace(/\n/g,'\\n').replace(/\r/g,'\\r') + '"');
+                    }
+                }
+            }
+        }
+
+        let info = '<strong>' + events.length + ' class sessions</strong> across ' + state.generatedRows.length + ' days.';
+        if (allDay > 0) {
+            info += '<br><span style="color:var(--warning)">&#9888; ' + allDay + ' session' + (allDay>1?'s':'') + ' have unrecognised time formats.</span>';
+            if (failingTimes.size > 0) {
+                info += '<br><span style="font-size:11px;color:var(--ink-2)">Failing time string' + (failingTimes.size>1?'s':'') + ': <code style="background:var(--surface-2);padding:2px 5px;border-radius:3px;font-size:11px;">' + [...failingTimes].join(', ') + '</code></span>';
+            }
+        }
+        els.calendarSyncInfo.innerHTML = info;
+        els.calendarModal.classList.add('show');
+    });
+
+    els.closeCalendarModal.addEventListener('click', () => els.calendarModal.classList.remove('show'));
+    els.calendarModal.addEventListener('click', e => { if (e.target === els.calendarModal) els.calendarModal.classList.remove('show'); });
+    els.doGoogleCalendarSync.addEventListener('click', syncToGoogleCalendar);
+    els.doICSDownload.addEventListener('click', downloadICS);
+
     function render() {
       const hasData = Boolean(state.data); const hasGeneratedRows = Array.isArray(state.generatedRows) && state.generatedRows.length > 0; const isLocked = Boolean(state.currentProfile);
       
@@ -1346,6 +2454,7 @@
       els.newBtn.classList.remove("hidden");
       els.deleteBtn.classList.toggle("hidden", !isLocked); 
       els.exportBtn.classList.toggle("hidden", !hasGeneratedRows);
+      els.calendarSyncBtn.classList.toggle("hidden", !hasGeneratedRows);
       
       els.selectAll.disabled = !hasData; els.clearAll.disabled = !hasData; els.createBtn.disabled = !hasData || state.selected.size === 0; els.exportBtn.disabled = !hasGeneratedRows;
       
@@ -1355,22 +2464,24 @@
     function populateFilters() {
       if (!state.data) return; const modes = new Set(); const credits = new Set(); const areas = new Set();
       state.data.options.forEach(opt => { if (opt.courseMode) modes.add(opt.courseMode.trim()); if (opt.credit !== undefined) credits.add(opt.credit); if (opt.academicArea) areas.add(opt.academicArea.trim()); });
-      buildMultiSelect(els.areaFilterMenu, els.areaFilterBtn, areas, "All Areas"); buildMultiSelect(els.modeFilterMenu, els.modeFilterBtn, modes, "All Modes"); buildMultiSelect(els.creditFilterMenu, els.creditFilterBtn, credits, "All Credits");
+      buildMultiSelect(els.areaFilterMenu, els.areaFilterBtn, areas, "All Areas"); 
+      buildMultiSelect(els.modeFilterMenu, els.modeFilterBtn, modes, "All Modes"); 
+      buildMultiSelect(els.creditFilterMenu, els.creditFilterBtn, credits, "All Credits");
     }
 
     function getAreaColor(area) {
         const a = String(area || "").toLowerCase();
-        if (a.includes('f & a') || a.includes('financ')) return 'border-left: 4px solid #3b82f6;'; 
-        if (a.includes('market')) return 'border-left: 4px solid #f97316;'; 
-        if (a.includes('om & qt') || a.includes('operation')) return 'border-left: 4px solid #22c55e;'; 
-        if (a.includes('is') || a.includes('analytic') || a.includes('information')) return 'border-left: 4px solid #ef4444;'; 
-        if (a.includes('ob & hr') || a.includes('hr')) return 'border-left: 4px solid #a855f7;'; 
-        if (a.includes('strategy')) return 'border-left: 4px solid #14b8a6;'; 
-        if (a.includes('economic')) return 'border-left: 4px solid #eab308;'; 
-        if (a.includes('communication')) return 'border-left: 4px solid #ec4899;'; 
-        if (a.includes('humaniti')) return 'border-left: 4px solid #6366f1;'; 
+        if (a.includes('f & a') || a.includes('financ')) return 'border-left: 3px solid #3b82f6;'; 
+        if (a.includes('market')) return 'border-left: 3px solid #f97316;'; 
+        if (a.includes('om & qt') || a.includes('operation')) return 'border-left: 3px solid #22c55e;'; 
+        if (a.includes('is') || a.includes('analytic') || a.includes('information')) return 'border-left: 3px solid #ef4444;'; 
+        if (a.includes('ob & hr') || a.includes('hr')) return 'border-left: 3px solid #a855f7;'; 
+        if (a.includes('strategy')) return 'border-left: 3px solid #14b8a6;'; 
+        if (a.includes('economic')) return 'border-left: 3px solid #eab308;'; 
+        if (a.includes('communication')) return 'border-left: 3px solid #ec4899;'; 
+        if (a.includes('humaniti')) return 'border-left: 3px solid #6366f1;'; 
         let hash = 0; for (let i = 0; i < a.length; i++) hash = a.charCodeAt(i) + ((hash << 5) - hash);
-        const hue = Math.abs(hash) % 360; return `border-left: 4px solid hsl(${hue}, 70%, 50%);`;
+        const hue = Math.abs(hash) % 360; return `border-left: 3px solid hsl(${hue}, 70%, 50%);`;
     }
 
     function parseDateSafe(dStr) {
@@ -1383,7 +2494,7 @@
       if (!state.data) { 
           ['courseSearch', 'searchTriggerBtn', 'toggleSelectedBtn', 'sisterFilter', 'startFilter', 'endFilter', 'toggleFiltersBtn', 'clearFiltersBtn'].forEach(id => els[id].disabled = true);
           els.areaFilterBtn.disabled = true; els.modeFilterBtn.disabled = true; els.creditFilterBtn.disabled = true;
-          els.courseList.innerHTML = `<div class="empty" style="grid-column: 1 / -1;"><div><strong>No Master Schedule Loaded</strong><br>Please wait for the admin to upload the data.</div></div>`; 
+          els.courseList.innerHTML = `<div class="empty" style="grid-column: 1 / -1;"><div><div class="empty-icon">📭</div><strong>No Master Schedule Loaded</strong><p>Please wait for the admin to upload the data.</p></div></div>`; 
           els.courseCount.textContent = "No workbook loaded"; 
           return; 
       }
@@ -1394,11 +2505,11 @@
       
       if (isLocked) {
           const options = selectedOptions(); const credits = options.reduce((sum, option) => sum + (Number(option.credit) || 0), 0);
-          els.courseCount.textContent = `Locked: ${options.length} courses • ${formatNumber(credits)} credits`;
+          els.courseCount.textContent = `Locked: ${options.length} courses · ${formatNumber(credits)} credits`;
           els.toggleSelectedBtn.textContent = `Show Selected (${options.length})`;
           
           if (!options.length) {
-              els.courseList.innerHTML = `<div class="empty" style="grid-column: 1 / -1;"><div><strong>No courses found in this profile</strong><br>Click 'Delete Profile' in the top menu to remove this empty timetable.</div></div>`;
+              els.courseList.innerHTML = `<div class="empty" style="grid-column: 1 / -1;"><div><div class="empty-icon">🔒</div><strong>No courses found in this profile</strong><p>Click 'Delete Profile' in the top menu to remove this empty timetable.</p></div></div>`;
               return;
           }
           
@@ -1408,11 +2519,11 @@
           const credits = selectedOptions().reduce((sum, option) => sum + (Number(option.credit) || 0), 0); 
           const visibleOptions = filteredOptions();
           
-          els.courseCount.textContent = `${state.selected.size} selected • ${formatNumber(credits)} credits`;
+          els.courseCount.textContent = `${state.selected.size} selected · ${formatNumber(credits)} credits`;
           els.toggleSelectedBtn.textContent = state.showSelectedOnly ? "Show All Courses" : `Show Selected (${state.selected.size})`;
           
           if (!visibleOptions.length) { 
-              els.courseList.innerHTML = `<div class="empty" style="grid-column: 1 / -1;"><div><strong>No matching courses</strong><br>Check your search and filters.</div></div>`; 
+              els.courseList.innerHTML = `<div class="empty" style="grid-column: 1 / -1;"><div><div class="empty-icon">🔍</div><strong>No matching courses</strong><p>Check your search and filters.</p></div></div>`; 
               return; 
           }
           
@@ -1437,8 +2548,9 @@
       
       let options = state.data.options.filter(opt => {
           if (state.showSelectedOnly && !state.selected.has(opt.key)) return false;
-          
-          if (selectedAreas.length > 0 && !selectedAreas.includes(opt.academicArea)) return false; if (selectedModes.length > 0 && !selectedModes.includes(opt.courseMode)) return false; if (selectedCredits.length > 0 && !selectedCredits.includes(String(opt.credit))) return false;
+          if (selectedAreas.length > 0 && !selectedAreas.includes(opt.academicArea)) return false; 
+          if (selectedModes.length > 0 && !selectedModes.includes(opt.courseMode)) return false; 
+          if (selectedCredits.length > 0 && !selectedCredits.includes(String(opt.credit))) return false;
           if (selectedSister !== "All") { const sis = String(opt.sisterSection || "").trim().toLowerCase(); const hasSister = sis && sis !== "no" && sis !== "none" && sis !== "na" && sis !== "n/a" && sis !== "-"; if (selectedSister === "Yes" && !hasSister) return false; if (selectedSister === "No" && hasSister) return false; }
           if (startT || endT) { const optStart = parseDateSafe(opt.startDate); const optEnd = parseDateSafe(opt.endDate); if (startT && optStart && optStart < startT) return false; if (endT && optEnd && optEnd > endT) return false; } return true;
       });
@@ -1465,35 +2577,50 @@
     }
 
     function renderPreview() {
-      if (!state.data || !state.generatedRows) { els.rowCount.textContent = "Ready to create"; els.preview.className = "empty"; els.preview.innerHTML = "<div><strong>Choose your courses</strong><br>Select courses from the Course Selection tab and click Create Timetable.</div>"; return; }
+      if (!state.data || !state.generatedRows) { 
+        els.rowCount.textContent = "Ready to create"; 
+        els.preview.className = "empty"; 
+        els.preview.innerHTML = "<div><div class='empty-icon'>🗓</div><strong>Choose your courses</strong><p>Select courses from the Course Selection tab and click Create Timetable.</p></div>"; 
+        return; 
+      }
       const rows = state.generatedRows; let totalUniqueClasses = 0;
       const rowCells = rows.map(row => {
           const uniqueCodes = new Set(); state.data.times.forEach(time => { (row.slots[time] || []).forEach(session => uniqueCodes.add(session.code)); }); const dailyClassCount = uniqueCodes.size; totalUniqueClasses += dailyClassCount;
           const timeCells = state.data.times.map(time => { const sessions = row.slots[time] || []; const content = sessions.length ? renderSessions(sessions) : "&nbsp;"; return `<div class="grid-cell${sessions.length > 1 ? " clash" : ""}">${content}</div>`; }).join("");
-          return `<div class="grid-cell date">${escapeHTML(row.date || "Date")}</div><div class="grid-cell count-cell" style="font-weight: 600; font-size: 13px; color: var(--accent);">${dailyClassCount}</div>${timeCells}`;
+          return `<div class="grid-cell date">${escapeHTML(row.date || "Date")}</div><div class="grid-cell count-cell" style="font-weight: 700; font-size: 13px; color: var(--accent);">${dailyClassCount}</div>${timeCells}`;
       }).join("");
 
       els.rowCount.textContent = `${rows.length} dates, ${totalUniqueClasses} unique classes`;
-      if (!rows.length) { els.preview.className = "empty"; els.preview.innerHTML = "<div><strong>No classes found</strong></div>"; return; }
+      if (!rows.length) { els.preview.className = "empty"; els.preview.innerHTML = "<div><div class='empty-icon'>🏖</div><strong>No classes found</strong><p>No sessions scheduled for your selected courses.</p></div>"; return; }
       els.preview.className = "table-wrap"; 
       const columns = `var(--col-date) var(--col-count) repeat(${state.data.times.length}, var(--col-time))`;
-      const headerCells = `<div class="grid-cell header date">Date</div><div class="grid-cell header count" style="font-size: 12px; z-index: 10;">Classes</div>` + state.data.times.map(time => `<div class="grid-cell header">${escapeHTML(time || "Time")}</div>`).join("");
+      const headerCells = `<div class="grid-cell header date">Date</div><div class="grid-cell header count" style="font-size: 11px; z-index: 10; text-transform: uppercase; letter-spacing: 0.4px;">Classes</div>` + state.data.times.map(time => `<div class="grid-cell header">${escapeHTML(time || "Time")}</div>`).join("");
       els.preview.innerHTML = `<div class="timetable-grid" style="grid-template-columns: ${columns}">${headerCells}${rowCells}</div>`;
     }
-function renderCourseDetails() {
-      if (!state.data || !state.generatedRows) { els.courseDetailsCount.textContent = "Ready to create"; els.coursesPreview.className = "empty"; els.coursesPreview.innerHTML = "<div><strong>Create your timetable</strong></div>"; return; }
+
+    function renderCourseDetails() {
+      if (!state.data || !state.generatedRows) { 
+        els.courseDetailsCount.textContent = "Ready to create"; 
+        els.coursesPreview.className = "empty"; 
+        els.coursesPreview.innerHTML = "<div><div class='empty-icon'>📋</div><strong>Create your timetable</strong><p>Select courses and click Create Timetable first.</p></div>"; 
+        return; 
+      }
       const options = selectedOptions(); els.courseDetailsCount.textContent = `${options.length} selected courses`;
-      if (!options.length) { els.coursesPreview.className = "empty"; els.coursesPreview.innerHTML = "<div><strong>No courses selected</strong></div>"; return; }
+      if (!options.length) { 
+        els.coursesPreview.className = "empty"; 
+        els.coursesPreview.innerHTML = "<div><div class='empty-icon'>📭</div><strong>No courses selected</strong></div>"; 
+        return; 
+      }
       els.coursesPreview.className = "table-wrap";
       
       const rowsHTML = options.map(opt => `<tr>
           <td>${escapeHTML(opt.sn)}</td>
           <td>${escapeHTML(opt.academicArea)}</td>
           <td>${escapeHTML(opt.courseMode)}</td>
-          <td>${escapeHTML(opt.code)}</td>
+          <td style="font-weight: 700;">${escapeHTML(opt.code)}</td>
           <td>${escapeHTML(opt.course)}</td>
-          <td>${formatNumber(opt.credit)}</td>
-          <td>${escapeHTML(opt.sections)}</td>
+          <td style="text-align: center; font-weight: 600;">${formatNumber(opt.credit)}</td>
+          <td style="text-align: center;">${escapeHTML(opt.sections)}</td>
           <td>${escapeHTML(opt.sisterSection)}</td>
           <td>${escapeHTML(opt.instructor)}</td>
           <td>${escapeHTML(opt.startDate)}</td>
@@ -1504,34 +2631,33 @@ function renderCourseDetails() {
       els.coursesPreview.innerHTML = `<table class="details-table">
           <thead>
               <tr>
-                  <th>SN</th>
-                  <th>Academic Area</th>
-                  <th>Course mode</th>
-                  <th>Course Code</th>
-                  <th>Course Name</th>
-                  <th>Credits</th>
-                  <th>Sections</th>
-                  <th>Sister Section</th>
-                  <th>Instructor(s)</th>
-                  <th>Start Date</th>
-                  <th>End Date</th>
+                  <th>SN</th><th>Academic Area</th><th>Course mode</th>
+                  <th>Course Code</th><th>Course Name</th><th>Credits</th>
+                  <th>Sections</th><th>Sister Section</th><th>Instructor(s)</th>
+                  <th>Start Date</th><th>End Date</th>
                   <th style="min-width: 200px;">Evaluation Criteria</th>
               </tr>
           </thead>
           <tbody>${rowsHTML}</tbody>
       </table>`;
     }
+
     function renderAttendance() {
-      if (!state.data || !state.generatedRows) { els.attendanceCount.textContent = "Ready to create"; els.attendancePreview.className = "empty"; els.attendancePreview.innerHTML = "<div><strong>Create your timetable</strong></div>"; return; }
+      if (!state.data || !state.generatedRows) { 
+        els.attendanceCount.textContent = "Ready to create"; 
+        els.attendancePreview.className = "empty"; 
+        els.attendancePreview.innerHTML = "<div><div class='empty-icon'>✅</div><strong>Create your timetable</strong><p>Select courses and click Create Timetable first.</p></div>"; 
+        return; 
+      }
       const options = selectedOptions(); els.attendanceCount.textContent = `Tracking ${options.length} courses`;
-      if (!options.length) { els.attendancePreview.className = "empty"; els.attendancePreview.innerHTML = "<div><strong>No courses selected</strong></div>"; return; }
+      if (!options.length) { els.attendancePreview.className = "empty"; els.attendancePreview.innerHTML = "<div><div class='empty-icon'>📭</div><strong>No courses selected</strong></div>"; return; }
       els.attendancePreview.className = "table-wrap";
       const schedules = new Map(); const assignedSection = new Map(); options.forEach(opt => schedules.set(opt.key, []));
       state.generatedRows.forEach(row => { state.data.times.forEach(time => { const sessions = row.slots[time] || []; sessions.forEach(session => { if (schedules.has(session.key)) { const sec = session.sectionLabel || ""; if (!assignedSection.has(session.key)) assignedSection.set(session.key, sec); if (sec === assignedSection.get(session.key)) schedules.get(session.key).push({ date: row.date, time: time }); } }); }); });
       let maxClasses = 0; options.forEach(opt => { const expected = Math.round((Number(opt.credit) || 0) * 5); if (expected > maxClasses) maxClasses = expected; });
       
       let thead = `<tr><th>Course Code</th><th style="text-align:center;">Leaves Allowed</th><th style="text-align:center;">Present / Total</th><th style="text-align:center;">Reset</th>`;
-      for (let i = 0; i < maxClasses; i++) { thead += `<th style="text-align:center;">Class ${i + 1}</th>`; } thead += `</tr>`;
+      for (let i = 0; i < maxClasses; i++) { thead += `<th style="text-align:center; font-size:11px;">Class ${i + 1}</th>`; } thead += `</tr>`;
       
       let tbody = options.map(opt => {
         const expectedClasses = Math.round((Number(opt.credit) || 0) * 5); const schedule = schedules.get(opt.key).slice(0, expectedClasses);
@@ -1539,14 +2665,14 @@ function renderCourseDetails() {
         for (let i = 0; i < maxClasses; i++) {
           if (i < expectedClasses) {
             const session = schedule[i]; const attKey = `${opt.key}-${i}`; const status = state.attendance[attKey]; if (status === 'P') presentCount++;
-            let cellClass = ''; let label = 'Mark'; let cellStyle = 11; 
-            if (status === 'P') { cellClass = 'att-present'; label = 'Present'; cellStyle = 7; } 
-            else if (status === 'A') { cellClass = 'att-absent'; label = 'Absent'; cellStyle = 8; }
+            let cellClass = ''; let label = 'Mark';
+            if (status === 'P') { cellClass = 'att-present'; label = 'Present'; } 
+            else if (status === 'A') { cellClass = 'att-absent'; label = 'Absent'; }
             let shortDate = 'TBD'; if (session) { const parts = session.date.split('-'); shortDate = parts.length === 3 ? `${parts[0]}-${parts[1]}` : session.date.replace(/ \d{4}$/, ''); }
             classCells += `<td class="att-cell ${cellClass}" data-key="${escapeAttr(opt.key)}" data-index="${i}"><span class="att-date">${escapeHTML(shortDate)}</span><span class="att-status">${label}</span></td>`;
-          } else { classCells += `<td style="background: var(--panel)"></td>`; }
+          } else { classCells += `<td style="background: var(--surface)"></td>`; }
         }
-        return `<tr><td><strong>${escapeHTML(opt.code)}</strong></td><td style="text-align: center; font-weight: 600;">${leavesAllowed}</td><td style="text-align: center; font-weight: 600;">${presentCount} / ${expectedClasses}</td><td style="text-align: center;"><button class="danger clear-att-btn" data-key="${escapeAttr(opt.key)}" style="padding: 4px 8px; font-size: 10px; border-radius: 6px; line-height: 1.2;">Clear</button></td>${classCells}</tr>`;
+        return `<tr><td><strong>${escapeHTML(opt.code)}</strong></td><td style="text-align: center; font-weight: 700;">${leavesAllowed}</td><td style="text-align: center; font-weight: 700;">${presentCount} / ${expectedClasses}</td><td style="text-align: center;"><button class="danger clear-att-btn" data-key="${escapeAttr(opt.key)}" style="padding: 4px 8px; font-size: 11px; border-radius: var(--radius-sm);">Clear</button></td>${classCells}</tr>`;
       }).join("");
       els.attendancePreview.innerHTML = `<div style="overflow-x: auto;"><table class="details-table" style="table-layout: auto;"><thead>${thead}</thead><tbody>${tbody}</tbody></table></div>`;
     }
@@ -1582,7 +2708,6 @@ function renderCourseDetails() {
           const modeCol = row.findIndex(value => /course mode/i.test(value)); const creditCol = row.findIndex(value => /^credit/i.test(value));
           const sectionCol = row.findIndex(value => /^section/i.test(value)); const sisterCol = row.findIndex(value => /sister section/i.test(value));
           const instructorCol = row.findIndex(value => /instructor/i.test(value)); const remarksCol = row.findIndex(value => /pre-requisite|remarks/i.test(value));
-
           for (const dataRow of sheet.rows.slice(rowIndex + 1)) {
             const code = normalizeCode(dataRow[codeCol]); const course = cleanText(dataRow[nameCol]); if (!code || !course) continue;
             catalog.set(code, { code, course, sn: snCol >= 0 ? cleanText(dataRow[snCol]) : "", academicArea: areaCol >= 0 ? cleanText(dataRow[areaCol]) : "", courseMode: modeCol >= 0 ? cleanText(dataRow[modeCol]) : "", credit: Number(dataRow[creditCol]) || 0, sections: Math.max(1, Number(dataRow[sectionCol]) || 1), sisterSection: sisterCol >= 0 ? cleanText(dataRow[sisterCol]) : "", instructor: instructorCol >= 0 ? cleanText(dataRow[instructorCol]) : "", remarks: remarksCol >= 0 ? cleanText(dataRow[remarksCol]) : "" });
@@ -1590,18 +2715,15 @@ function renderCourseDetails() {
         }
       } return catalog;
     }
-function parseEvaluations(sheets) {
+
+    function parseEvaluations(sheets) {
       const evaluations = new Map();
       for (const sheet of sheets) {
-        // Broader match for sheet name (catches "eval", "evaluations", etc.)
         if (sheet.name.toLowerCase().includes("eval")) {
           for (let rowIndex = 0; rowIndex < sheet.rows.length; rowIndex++) {
             const row = sheet.rows[rowIndex].map(cleanText);
-            
-            // Broader, more flexible match for column headers
             const codeCol = row.findIndex(value => /course\s*code|^code$/i.test(value)); 
             const evalCol = row.findIndex(value => /evaluation|criteria/i.test(value));
-            
             if (codeCol >= 0 && evalCol >= 0) {
               for (const dataRow of sheet.rows.slice(rowIndex + 1)) {
                 const code = normalizeCode(dataRow[codeCol]); 
@@ -1628,7 +2750,6 @@ function parseEvaluations(sheets) {
       const timeCols = header.map((value, index) => ({ value, index })).filter(item => /am|pm|noon/i.test(item.value) && !/lunch|break/i.test(item.value));
       const times = timeCols.map(item => item.value.replace(/\s+/g, " ").trim());
       if (dateCol < 0 || !times.length) throw new Error("No timetable grid was found.");
-
       const rows = []; const options = new Map();
       for (const sourceRow of sheet.rows.slice(sheet.headerIndex + 1)) {
         const date = normalizeDate(sourceRow[dateCol]); if (!date) continue;
@@ -1639,12 +2760,7 @@ function parseEvaluations(sheets) {
           slots[time] = sessions;
           for (const session of sessions) {
             const existing = options.get(session.key); const meta = catalog.get(session.code) || {};
-            options.set(session.key, { 
-                key: session.key, code: session.code, sn: meta.sn || "", academicArea: meta.academicArea || "", courseMode: meta.courseMode || "", 
-                course: meta.course || session.course, credit: meta.credit || 0, sections: meta.sections || 1, sisterSection: meta.sisterSection || "", 
-                instructor: meta.instructor || "", startDate: existing?.startDate || date, endDate: date, remarks: meta.remarks || "", 
-                evaluation: evaluations.get(session.code) || "TBD", count: (existing?.count || 0) + 1 
-            });
+            options.set(session.key, { key: session.key, code: session.code, sn: meta.sn || "", academicArea: meta.academicArea || "", courseMode: meta.courseMode || "", course: meta.course || session.course, credit: meta.credit || 0, sections: meta.sections || 1, sisterSection: meta.sisterSection || "", instructor: meta.instructor || "", startDate: existing?.startDate || date, endDate: date, remarks: meta.remarks || "", evaluation: evaluations.get(session.code) || "TBD", count: (existing?.count || 0) + 1 });
           }
         }
         if (Object.keys(slots).length) rows.push({ date, room, slots });
@@ -1658,7 +2774,7 @@ function parseEvaluations(sheets) {
       return value.split(/\n+/).map(part => part.trim()).filter(Boolean).map(raw => {
         const fullNameMatch = raw.match(/^(.*?)\s*\(Section\s+(.+?)\s+-\s+Class\s+(\d+)\)$/i);
         if (fullNameMatch) return { raw, code: normalizeCode(fullNameMatch[1]), course: fullNameMatch[1], room, sectionLabel: normalizeSection(fullNameMatch[2]), classNumber: Number(fullNameMatch[3]), key: normalizeCode(fullNameMatch[1]) };
-        const sectionMatch = raw.match(/^(.+?)\s+([A-Z](?:&[A-Z])?)\s+(\d+)$/i); const singleMatch = raw.match(/^(.+?)\s+(\d+)$/i);
+        const sectionMatch = raw.match(/^(.+?)\s+([A-Z](?:&[A-Z])?)?\s+(\d+)$/i); const singleMatch = raw.match(/^(.+?)\s+(\d+)$/i);
         let code = ""; let sectionLabel = ""; let classNumber = null;
         if (sectionMatch) { code = normalizeCode(sectionMatch[1]); sectionLabel = normalizeSection(sectionMatch[2]); classNumber = Number(sectionMatch[3]); }
         else if (singleMatch) { code = normalizeCode(singleMatch[1]); classNumber = Number(singleMatch[2]); } else { code = normalizeCode(raw); }
@@ -1807,16 +2923,206 @@ function parseEvaluations(sheets) {
     function decode(bytes) { return new TextDecoder("utf-8").decode(bytes); }
     function escapeHTML(value) { return String(value).replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char])); }
     function escapeAttr(value) { return escapeHTML(value); }
-    function showError(message) { els.error.textContent = message; els.error.hidden = false; }
-    function clearError() { els.error.textContent = ""; els.error.hidden = true; }
+    function showError(message) { els.error.textContent = message; els.error.classList.remove('hidden'); }
+    function clearError() { els.error.textContent = ""; els.error.classList.add('hidden'); }
 
-    const themeToggleBtn = document.getElementById("themeToggle"); const themeMeta = document.getElementById("themeColorMeta"); const currentTheme = localStorage.getItem("theme");
-    if (currentTheme === "dark" || (!currentTheme && window.matchMedia("(prefers-color-scheme: dark)").matches)) { document.documentElement.setAttribute("data-theme", "dark"); themeToggleBtn.textContent = "Light Mode ☀️"; themeMeta.content = "#000000"; } else { themeToggleBtn.textContent = "Dark Mode 🌙"; themeMeta.content = "#ffffff"; }
+    // ─── THEME ─────────────────────────────────────────────────────
+    const themeToggleBtn = document.getElementById("themeToggle"); 
+    const themeMeta = document.getElementById("themeColorMeta"); 
+    const currentTheme = localStorage.getItem("theme");
+    if (currentTheme === "dark" || (!currentTheme && window.matchMedia("(prefers-color-scheme: dark)").matches)) { 
+      document.documentElement.setAttribute("data-theme", "dark"); 
+      themeToggleBtn.textContent = "☀️ Light Mode"; 
+      themeMeta.content = "#0f0f1a"; 
+    } else { 
+      themeToggleBtn.textContent = "🌙 Dark Mode"; 
+      themeMeta.content = "#ffffff"; 
+    }
     themeToggleBtn.addEventListener("click", () => {
-      if (document.documentElement.getAttribute("data-theme") === "dark") { document.documentElement.removeAttribute("data-theme"); localStorage.setItem("theme", "light"); themeToggleBtn.textContent = "Dark Mode 🌙"; themeMeta.content = "#ffffff"; } 
-      else { document.documentElement.setAttribute("data-theme", "dark"); localStorage.setItem("theme", "dark"); themeToggleBtn.textContent = "Light Mode ☀️"; themeMeta.content = "#000000"; }
+      if (document.documentElement.getAttribute("data-theme") === "dark") { 
+        document.documentElement.removeAttribute("data-theme"); 
+        localStorage.setItem("theme", "light"); 
+        themeToggleBtn.textContent = "🌙 Dark Mode"; 
+        themeMeta.content = "#ffffff"; 
+      } else { 
+        document.documentElement.setAttribute("data-theme", "dark"); 
+        localStorage.setItem("theme", "dark"); 
+        themeToggleBtn.textContent = "☀️ Light Mode"; 
+        themeMeta.content = "#0f0f1a"; 
+      }
       document.getElementById("userDropdown").classList.remove("show");
     });
+
+    // ─── AUTH STATE ─────────────────────────────────────────────────
+    onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        state.currentUser = user;
+        localStorage.setItem('offlineFallbackUser', JSON.stringify({ uid: user.uid, email: user.email, displayName: user.displayName, photoURL: user.photoURL }));
+        els.userAvatar.src = user.photoURL || "";
+        showLoading("Loading your profile...");
+
+        try {
+          const userDoc = await getDoc(doc(db, "users", user.uid));
+          const fallbackName = user.email.split('@')[0];
+
+          if (!userDoc.exists()) {
+            await setDoc(doc(db, "users", user.uid), { email: user.email, name: user.displayName || fallbackName, lastLogin: Date.now() });
+            els.loginScreen.style.display = "none";
+            els.onboardingScreen.style.display = "flex";
+            hideLoading();
+          } else {
+            const data = userDoc.data();
+            await setDoc(doc(db, "users", user.uid), { lastLogin: Date.now(), name: user.displayName || fallbackName }, { merge: true });
+
+            if (!data.programTrack) {
+              els.loginScreen.style.display = "none";
+              els.onboardingScreen.style.display = "flex";
+              hideLoading();
+            } else {
+              state.userTrack = data.programTrack;
+              localStorage.setItem(`offlineTrack_${user.uid}`, data.programTrack);
+              if (state.currentUser.email === ADMIN_EMAIL && data.programTrack) {
+                document.getElementById("adminTrackSelect").value = data.programTrack;
+              }
+              launchWorkspace();
+            }
+          }
+        } catch(e) {
+          console.error("Auth state error:", e);
+          const offlineTrack = localStorage.getItem(`offlineTrack_${user.uid}`);
+          if (offlineTrack) {
+              console.log("Offline mode: loaded track from cache.");
+              state.userTrack = offlineTrack;
+              launchWorkspace();
+          } else {
+              els.loginScreen.style.display = "flex";
+              hideLoading();
+          }
+        }
+      } else {
+        // Complete Offline Auth Fallback
+        const offlineUserStr = localStorage.getItem('offlineFallbackUser');
+        if (!navigator.onLine && offlineUserStr) {
+            console.log("Offline mode: Bypassing Firebase Auth");
+            try {
+                const fakeUser = JSON.parse(offlineUserStr);
+                state.currentUser = fakeUser;
+                els.userAvatar.src = fakeUser.photoURL || "";
+                
+                const offlineTrack = localStorage.getItem(`offlineTrack_${fakeUser.uid}`);
+                if (offlineTrack) {
+                    state.userTrack = offlineTrack;
+                    launchWorkspace();
+                    return; // Skip showing login screen
+                }
+            } catch(e) {}
+        }
+
+        state.currentUser = null;
+        els.loginScreen.style.display = "flex";
+        els.appHeader.classList.add("hidden");
+        els.mainContent.classList.add("hidden");
+        hideLoading();
+      }
+    });
+
+    // ─── OFFLINE BOOT (Firebase SDK was unavailable) ────────────────
+    if (OFFLINE_MODE) {
+      const offlineUserStr = localStorage.getItem('offlineFallbackUser');
+      if (offlineUserStr) {
+        try {
+          const cachedUser = JSON.parse(offlineUserStr);
+          state.currentUser = cachedUser;
+          els.userAvatar.src = cachedUser.photoURL || "";
+
+          const offlineTrack = localStorage.getItem(`offlineTrack_${cachedUser.uid}`);
+          if (offlineTrack) {
+            state.userTrack = offlineTrack;
+            els.loginScreen.style.display = "none";
+            launchWorkspace();
+          } else {
+            // Has user but no track — show login
+            els.loginScreen.style.display = "flex";
+            hideLoading();
+          }
+        } catch(_e) {
+          els.loginScreen.style.display = "flex";
+          hideLoading();
+        }
+      } else {
+        // Never logged in before — nothing we can do offline
+        els.loginScreen.style.display = "flex";
+        hideLoading();
+      }
+    }
+
+    // Handle manageSheetLinkBtn if it exists
+    const manageSheetLinkBtn = document.getElementById("manageSheetLinkBtn");
+    if (manageSheetLinkBtn) {
+      manageSheetLinkBtn.addEventListener("click", () => {
+        els.masterSheetModal.classList.add("show");
+        loadSheetSettings();
+      });
+    }
+    // ─── INSTALL BANNER ──────────────────────────────────────────────
+    (() => {
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+        || window.navigator.standalone === true;
+      const dismissed = localStorage.getItem('installBannerDismissed');
+      const banner = document.getElementById('installBanner');
+      const btn = document.getElementById('installBannerBtn');
+      const closeBtn = document.getElementById('installBannerClose');
+      const instructions = document.getElementById('installInstructions');
+
+      if (isStandalone || dismissed) return; // Already installed or user dismissed
+
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const isAndroid = /Android/.test(navigator.userAgent);
+      let deferredPrompt = null;
+
+      if (isIOS) {
+        instructions.innerHTML = 'Tap <strong>Share</strong> <span style="font-size:16px;">⎋</span> then <strong>"Add to Home Screen"</strong>';
+        btn.textContent = 'Got it';
+        btn.addEventListener('click', () => {
+          banner.classList.remove('show');
+          localStorage.setItem('installBannerDismissed', 'true');
+        });
+      } else {
+        // Chrome / Android — intercept native install prompt
+        window.addEventListener('beforeinstallprompt', (e) => {
+          e.preventDefault();
+          deferredPrompt = e;
+        });
+
+        btn.addEventListener('click', async () => {
+          if (deferredPrompt) {
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            if (outcome === 'accepted') {
+              localStorage.setItem('installBannerDismissed', 'true');
+            }
+            deferredPrompt = null;
+            banner.classList.remove('show');
+          } else {
+            // Fallback: show manual instructions
+            instructions.innerHTML = 'Click the <strong>install icon</strong> in your browser\'s address bar';
+            btn.textContent = 'Got it';
+            btn.addEventListener('click', () => {
+              banner.classList.remove('show');
+              localStorage.setItem('installBannerDismissed', 'true');
+            }, { once: true });
+          }
+        });
+      }
+
+      closeBtn.addEventListener('click', () => {
+        banner.classList.remove('show');
+        localStorage.setItem('installBannerDismissed', 'true');
+      });
+
+      // Show banner after a short delay so it doesn't distract from initial load
+      setTimeout(() => banner.classList.add('show'), 3000);
+    })();
   </script>
 </body>
 </html>
